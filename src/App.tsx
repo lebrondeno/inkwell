@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react'
 import { AppProvider, useApp } from './context/AppContext'
 import Landing from './pages/Landing'
 import AppLayout from './pages/AppLayout'
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
+        <VercelAnalytics />
         <AppRoutes />
       </AppProvider>
     </BrowserRouter>
