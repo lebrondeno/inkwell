@@ -1,63 +1,57 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, getWriterProfile } from '../lib/supabase'
+import { useApp } from '../context/AppContext'
 import Footer from '../components/Footer'
 import type { Article } from '../lib/supabase'
 import styles from './PublicProfile.module.css'
 
-interface WriterProfile {
-  full_name: string
-  bio: string
-  username: string
-}
-
 export default function PublicProfile() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState<WriterProfile | null>(null)
+  const { theme, toggleTheme } = useApp()
+  const [fullName, setFullName] = useState('Writer')
+  const [bio, setBio] = useState('')
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadWriter() }, [userId])
+  useEffect(() => { if (userId) loadWriter(userId) }, [userId])
 
-  const loadWriter = async () => {
+  const loadWriter = async (uid: string) => {
     try {
-      // Try profiles table first
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('full_name, bio, username')
-        .eq('id', userId)
-        .single()
+      // Load profile
+      const profile = await getWriterProfile(uid)
+      if (profile?.full_name) setFullName(profile.full_name)
+      if (profile?.bio) setBio(profile.bio)
 
-      if (profileData) {
-        setProfile(profileData)
-      } else {
-        setProfile({ full_name: 'Writer', bio: '', username: '' })
-      }
-
-      // Load published articles
-      const { data: arts } = await supabase
+      // Load published articles (RLS allows public reads of published)
+      const { data, error } = await supabase
         .from('articles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', uid)
         .eq('status', 'published')
         .order('created_at', { ascending: false })
 
-      setArticles(arts || [])
-    } catch {
-      setProfile({ full_name: 'Writer', bio: '', username: '' })
+      if (error) console.error('Profile articles error:', error.message)
+      setArticles(data || [])
+    } catch (e) {
+      console.error('Profile load error:', e)
     } finally {
       setLoading(false)
     }
   }
 
-  const displayName = profile?.full_name || profile?.username || 'Writer'
-  const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '✦'
+  const totalWords = articles.reduce((s, a) => s + (a.word_count || 0), 0)
+  const totalViews = articles.reduce((s, a) => s + (a.view_count || 0), 0)
 
   if (loading) {
     return (
       <div className={styles.wrapper}>
-        <div className={styles.loading}><span className={styles.loadIcon}>✦</span><p>Loading writer…</p></div>
+        <div className={styles.center}>
+          <span className={styles.spinner}>✦</span>
+          <p>Loading writer…</p>
+        </div>
         <Footer />
       </div>
     )
@@ -68,59 +62,72 @@ export default function PublicProfile() {
       <nav className={styles.topNav}>
         <button className={styles.backBtn} onClick={() => navigate('/discover')}>← Discover</button>
         <span className={styles.navLogo}>✦ Inkwell</span>
-        <div />
+        <button className={styles.themeBtn} onClick={toggleTheme}>{theme === 'dark' ? '☀' : '☾'}</button>
       </nav>
 
       <div className={styles.container}>
-        {/* Writer hero */}
+        {/* ── Profile hero ── */}
         <div className={styles.profileHero}>
           <div className={styles.avatar}>{initials}</div>
           <div className={styles.profileInfo}>
-            <h1 className={styles.name}>{displayName}</h1>
-            {profile?.bio && <p className={styles.bio}>{profile.bio}</p>}
-            <div className={styles.stats}>
-              <span className={styles.statItem}><strong>{articles.length}</strong> published articles</span>
-              <span className={styles.statItem}>
-                <strong>{articles.reduce((s, a) => s + (a.word_count || 0), 0).toLocaleString()}</strong> words
-              </span>
+            <h1 className={styles.name}>{fullName}</h1>
+            {bio && <p className={styles.bio}>{bio}</p>}
+            <div className={styles.statRow}>
+              <span className={styles.stat}><strong>{articles.length}</strong> articles</span>
+              <span className={styles.statDot}>·</span>
+              <span className={styles.stat}><strong>{totalWords.toLocaleString()}</strong> words</span>
+              {totalViews > 0 && (
+                <>
+                  <span className={styles.statDot}>·</span>
+                  <span className={styles.stat}><strong>{totalViews.toLocaleString()}</strong> views</span>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         <div className={styles.divider} />
 
-        {/* Articles */}
-        <div className={styles.section}>
-          <h2 className={styles.sectionTitle}>Published Articles</h2>
-          {articles.length === 0 ? (
-            <div className={styles.empty}>
-              <p>No published articles yet.</p>
-            </div>
-          ) : (
-            <div className={styles.grid}>
-              {articles.map((article) => (
-                <Link key={article.id} to={`/articles/${article.slug}`} className={styles.card}>
-                  <div className={styles.cardTop}>
-                    <span className={styles.cardEmoji}>{article.cover_emoji || '✦'}</span>
-                    <span className={styles.cardDate}>{new Date(article.created_at).toLocaleDateString()}</span>
+        {/* ── Articles ── */}
+        <h2 className={styles.sectionTitle}>Published Articles</h2>
+
+        {articles.length === 0 ? (
+          <div className={styles.empty}>
+            <span>✦</span>
+            <p>No published articles yet.</p>
+          </div>
+        ) : (
+          <div className={styles.grid}>
+            {articles.map((article, i) => (
+              <Link
+                key={article.id}
+                to={`/articles/${article.slug}`}
+                className={styles.card}
+                style={{ animationDelay: `${i * 0.05}s` }}
+              >
+                <div className={styles.cardHead}>
+                  <span className={styles.cardEmoji}>{article.cover_emoji || '✦'}</span>
+                  <span className={styles.cardDate}>
+                    {new Date(article.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+                <h3 className={styles.cardTitle}>{article.title}</h3>
+                {article.tags && article.tags.length > 0 && (
+                  <div className={styles.cardTags}>
+                    {article.tags.slice(0, 3).map((t: string) => (
+                      <span key={t} className={styles.cardTag}>{t}</span>
+                    ))}
                   </div>
-                  <h3 className={styles.cardTitle}>{article.title}</h3>
-                  {article.tags && article.tags.length > 0 && (
-                    <div className={styles.cardTags}>
-                      {article.tags.slice(0, 3).map((t: string) => (
-                        <span key={t} className={styles.cardTag}>{t}</span>
-                      ))}
-                    </div>
-                  )}
-                  <div className={styles.cardFooter}>
-                    <span>{article.reading_time || 5} min read</span>
-                    <span>{article.word_count || 0} words</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+                )}
+                <div className={styles.cardFoot}>
+                  <span>{article.reading_time || 5} min read</span>
+                  <span>{(article.word_count || 0).toLocaleString()} words</span>
+                  {(article.view_count || 0) > 0 && <span>{article.view_count} views</span>}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <Footer />

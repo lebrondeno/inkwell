@@ -19,17 +19,36 @@ export interface Article {
   word_count: number
   reading_time: number
   cover_emoji: string
+  view_count?: number
   created_at: string
   updated_at: string
 }
 
-export interface Profile {
+export interface WriterProfile {
   id: string
-  username: string
   full_name: string
   bio: string
-  avatar_url: string
-  writing_streak: number
-  total_words: number
-  articles_count: number
+  created_at: string
+}
+
+// Fetch a writer's public profile
+export async function getWriterProfile(userId: string): Promise<WriterProfile | null> {
+  const { data } = await supabase
+    .from('writer_profiles')
+    .select('id, full_name, bio, created_at')
+    .eq('id', userId)
+    .single()
+  return data
+}
+
+// Upsert current user's profile (call after auth updateUser)
+export async function upsertProfile(userId: string, full_name: string, bio: string) {
+  return supabase
+    .from('writer_profiles')
+    .upsert({ id: userId, full_name, bio, updated_at: new Date().toISOString() })
+}
+
+// Increment view count for an article
+export async function incrementView(slug: string) {
+  await supabase.rpc('increment_view', { article_slug: slug })
 }
