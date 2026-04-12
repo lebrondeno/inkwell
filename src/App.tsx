@@ -1,3 +1,13 @@
+/**
+ * Inkwell - A Modern Writing Platform
+ * 
+ * Built with ✦ by lebrondeno
+ * GitHub: https://github.com/lebrondeno/inkwell
+ * 
+ * Features: Authentication, Article Management, Analytics, PWA
+ * Tech Stack: React, TypeScript, Supabase, Vercel
+ */
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react'
 import { AppProvider, useApp } from './context/AppContext'

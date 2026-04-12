@@ -140,6 +140,11 @@ export default function Landing() {
           </div>
         </div>
       </div>
+
+      {/* Footer signature */}
+      <footer className={styles.footer}>
+        <p>✦ Crafted with passion by <span className={styles.signature}>lebrondeno</span></p>
+      </footer>
     </div>
   )
 }
