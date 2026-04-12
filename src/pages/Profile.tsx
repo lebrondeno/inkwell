@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, upsertProfile } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import styles from './Profile.module.css'
 
@@ -16,7 +16,12 @@ export default function Profile() {
 
   const saveProfile = async () => {
     setSaving(true)
+    // Update auth metadata
     const { error } = await supabase.auth.updateUser({ data: { full_name: name, bio } })
+    // Also upsert into writer_profiles so it's publicly readable
+    if (!error && user) {
+      await upsertProfile(user.id, name, bio)
+    }
     setSaving(false)
     if (error) showToast(error.message, 'error')
     else showToast('Profile updated successfully')
@@ -64,49 +69,43 @@ export default function Profile() {
               <span className={styles.infoValue} style={{ color: 'var(--accent)' }}>Free — All Features</span>
             </div>
             <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>AI Engine</span>
-              <span className={styles.infoValue}>Gemini 1.5 Flash</span>
+              <span className={styles.infoLabel}>Public Profile</span>
+              <span className={styles.infoValue} style={{ color: 'var(--green)', fontSize: '12px' }}>Visible to all readers</span>
             </div>
           </div>
         </div>
 
         {/* Right — forms */}
         <div className={styles.rightCol}>
-          {/* Profile info */}
           <div className={styles.section}>
             <h3>Personal Information</h3>
             <div className={styles.fieldGroup}>
               <div className={styles.field}>
                 <label>Full Name</label>
-                <input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your full name"
-                />
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
               </div>
               <div className={styles.field}>
                 <label>Email</label>
                 <input value={user?.email || ''} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
               </div>
               <div className={styles.field}>
-                <label>Bio</label>
+                <label>Bio <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(shown on your public profile)</span></label>
                 <textarea
                   value={bio}
                   onChange={e => setBio(e.target.value)}
-                  placeholder="Tell readers a little about yourself..."
+                  placeholder="Tell readers a little about yourself…"
                   rows={3}
                   style={{ resize: 'vertical' }}
                 />
               </div>
             </div>
             <button className="btn btn-primary" onClick={saveProfile} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
 
           <div className={styles.divider} />
 
-          {/* Password */}
           <div className={styles.section}>
             <h3>Change Password</h3>
             <div className={styles.fieldGroup}>
@@ -121,21 +120,16 @@ export default function Profile() {
               </div>
             </div>
             <button className="btn btn-ghost" onClick={changePassword} disabled={changingPw || !newPassword}>
-              {changingPw ? 'Updating...' : 'Update Password'}
+              {changingPw ? 'Updating…' : 'Update Password'}
             </button>
           </div>
 
           <div className={styles.divider} />
 
-          {/* Danger */}
           <div className={styles.section}>
             <h3 style={{ color: 'var(--red)' }}>Danger Zone</h3>
-            <p className={styles.dangerDesc}>
-              Signing out will end your current session. Your articles are safely stored.
-            </p>
-            <button className="btn btn-danger" onClick={() => supabase.auth.signOut()}>
-              Sign Out
-            </button>
+            <p className={styles.dangerDesc}>Signing out will end your current session. Your articles are safely stored.</p>
+            <button className="btn btn-danger" onClick={() => supabase.auth.signOut()}>Sign Out</button>
           </div>
         </div>
       </div>
