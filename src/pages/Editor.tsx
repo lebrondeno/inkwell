@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
+import PublishModal from '../components/PublishModal'
 import {
   continueWriting, improveWriting, summarizeArticle,
   generateOutline, getReflectionPrompts, changeTone, generateTags, customPrompt
@@ -29,6 +30,7 @@ export default function Editor() {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(true)
+  const [showPublishModal, setShowPublishModal] = useState(false)
   const [aiPanel, setAiPanel] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiResult, setAiResult] = useState('')
@@ -155,9 +157,17 @@ export default function Editor() {
   }
 
   const publish = async () => {
+    if (!article.title?.trim()) {
+      showToast('Please add a title before publishing', 'error')
+      return
+    }
+    if (!article.content?.trim()) {
+      showToast('Please write some content before publishing', 'error')
+      return
+    }
     handleChange('status', 'published')
     await autoSave()
-    showToast('Article published! 🎉')
+    setShowPublishModal(true)
   }
 
   const statusColor = article.status === 'published' ? 'var(--green)' : article.status === 'archived' ? 'var(--red)' : 'var(--text-muted)'
@@ -373,6 +383,14 @@ export default function Editor() {
           </div>
         )}
       </div>
+
+      {showPublishModal && article.slug && (
+        <PublishModal
+          articleSlug={article.slug}
+          articleTitle={article.title || 'Untitled'}
+          onClose={() => setShowPublishModal(false)}
+        />
+      )}
     </div>
   )
 }
