@@ -18,6 +18,8 @@ import Articles from './pages/Articles'
 import Editor from './pages/Editor'
 import Analytics from './pages/Analytics'
 import Profile from './pages/Profile'
+import PublicDiscover from './pages/PublicDiscover'
+import PublicArticle from './pages/PublicArticle'
 
 function AppRoutes() {
   const { user, loading } = useApp()
@@ -33,19 +35,30 @@ function AppRoutes() {
     )
   }
 
-  if (!user) return <Landing />
-
   return (
     <Routes>
-      <Route path="/app" element={<AppLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="articles" element={<Articles />} />
-        <Route path="write" element={<Editor />} />
-        <Route path="write/:id" element={<Editor />} />
-        <Route path="analytics" element={<Analytics />} />
-        <Route path="profile" element={<Profile />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/app" replace />} />
+      {/* Public routes */}
+      <Route path="/discover" element={<PublicDiscover />} />
+      <Route path="/articles/:slug" element={<PublicArticle />} />
+
+      {/* Protected routes */}
+      {user ? (
+        <>
+          <Route path="/app" element={<AppLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="articles" element={<Articles />} />
+            <Route path="write" element={<Editor />} />
+            <Route path="write/:id" element={<Editor />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/app" replace />} />
+        </>
+      ) : (
+        <>
+          <Route path="*" element={<Landing />} />
+        </>
+      )}
     </Routes>
   )
 }

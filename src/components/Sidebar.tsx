@@ -10,6 +10,7 @@ const NAV = [
   { icon: '◉', label: 'Write', path: '/app/write' },
   { icon: '⊡', label: 'Analytics', path: '/app/analytics' },
   { icon: '◎', label: 'Profile', path: '/app/profile' },
+  { icon: '⟡', label: 'Discover', path: '/discover' },
 ]
 
 export default function Sidebar() {

@@ -137,6 +137,14 @@
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
+.linkHint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
 .copyBtn {
   padding: 10px 16px;
   background: var(--bg-hover);

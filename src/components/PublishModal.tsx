@@ -22,25 +22,30 @@ export default function PublishModal({ articleSlug, articleTitle, onClose }: Pub
         </div>
 
         <div className={styles.content}>
-          <p className={styles.subtitle}>Your article is now live and ready to share!</p>
+          <p className={styles.subtitle}>Your article is now live and anyone can view it!</p>
           
           <div className={styles.titleBox}>
             <p className={styles.articleTitle}>{articleTitle}</p>
           </div>
 
           <div className={styles.linkBox}>
-            <label>Share this link:</label>
+            <label>📋 Share this link:</label>
             <div className={styles.linkContainer}>
               <input 
                 type="text" 
                 readOnly 
                 value={shareLink}
                 className={styles.linkInput}
+                onClick={e => {
+                  (e.target as HTMLInputElement).select()
+                  copyToClipboard()
+                }}
               />
-              <button className={styles.copyBtn} onClick={copyToClipboard}>
-                📋 Copy
+              <button className={styles.copyBtn} onClick={copyToClipboard} title="Copy to clipboard">
+                Copy
               </button>
             </div>
+            <p className={styles.linkHint}>Click the link or button to copy</p>
           </div>
 
           <div className={styles.actions}>
