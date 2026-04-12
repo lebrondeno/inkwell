@@ -3,11 +3,15 @@ import type { ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
+type Theme = 'dark' | 'light'
+
 interface AppContextType {
   user: User | null
   session: Session | null
   loading: boolean
   toast: { message: string; type: 'success' | 'error' } | null
+  theme: Theme
+  toggleTheme: () => void
   showToast: (message: string, type?: 'success' | 'error') => void
 }
 
@@ -18,6 +22,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('theme') as Theme | null
+    return saved || 'dark'
+  })
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,13 +43,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  }
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
   }
 
   return (
-    <AppContext.Provider value={{ user, session, loading, toast, showToast }}>
+    <AppContext.Provider value={{ user, session, loading, toast, theme, toggleTheme, showToast }}>
       {children}
       {toast && (
         <div className={`toast ${toast.type}`}>

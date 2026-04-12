@@ -15,7 +15,7 @@ const NAV = [
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, showToast } = useApp()
+  const { user, showToast, theme, toggleTheme } = useApp()
   const [signingOut, setSigningOut] = useState(false)
 
   const handleSignOut = async () => {
@@ -50,6 +50,16 @@ export default function Sidebar() {
           </button>
         ))}
       </nav>
+
+      <div className={styles.themeToggle}>
+        <button 
+          className={styles.themeBtn}
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
+      </div>
 
       <div className={styles.bottom}>
         <div className={styles.userCard}>

@@ -8,3 +8,24 @@
   overflow-y: auto;
   min-width: 0;
 }
+
+/* Mobile and tablet responsive */
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+    padding-top: 56px;
+    padding-bottom: 64px;
+    min-height: calc(100vh - 120px);
+  }
+
+  .main {
+    flex: 1;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .layout {
+    min-height: calc(100vh - 120px);
+  }
+}
