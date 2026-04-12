@@ -1,0 +1,241 @@
+.page {
+  padding: 48px 56px;
+  max-width: 900px;
+  animation: fadeIn 0.4s ease;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 48px;
+}
+
+.greeting {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.title {
+  font-size: 36px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  line-height: 1.1;
+}
+
+.sub {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.statCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.statCard:hover {
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+}
+
+.statIcon {
+  color: var(--accent);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.statValue {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.statLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Section */
+.section {
+  margin-bottom: 44px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sectionHeader h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Article list */
+.articleList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.articleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: 1px solid transparent;
+  animation: fadeUp 0.4s ease both;
+}
+
+.articleRow:hover {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.articleEmoji {
+  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+
+.articleInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.articleInfo h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.articleInfo p {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.articleMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.time {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+
+/* Skeleton */
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeletonItem {
+  height: 64px;
+}
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 64px 32px;
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-lg);
+}
+
+.emptyIcon {
+  font-size: 28px;
+  color: var(--accent);
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty h3 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.empty p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+/* Prompts */
+.prompts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.prompt:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .page { padding: 24px 20px; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .prompts { grid-template-columns: 1fr; }
+  .header { flex-direction: column; gap: 20px; }
+}
