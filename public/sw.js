@@ -1,66 +1,49 @@
-const CACHE_NAME = 'inkwell-v1'
-const urlsToCache = [
+const CACHE_NAME = 'inkwell-v2'
+const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/favicon.svg',
-  '/icons.svg'
+  '/icons.svg',
+  '/manifest.json'
 ]
 
-// Install event
+// Install — cache static assets
 self.addEventListener('install', event => {
+  self.skipWaiting()
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(urlsToCache)
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   )
 })
 
-// Activate event
+// Activate — clean up old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName)
-          }
-        })
-      )
-    })
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   )
 })
 
-// Fetch event - Network first strategy
+// Fetch — network first, fallback to cache
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') {
-    return
-  }
+  if (event.request.method !== 'GET') return
+  // Skip supabase API and vercel analytics requests
+  const url = new URL(event.request.url)
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('vercel')) return
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response
+        if (response && response.status === 200) {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
         }
-
-        const responseToCache = response.clone()
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache)
-        })
-
         return response
       })
-      .catch(() => {
-        return caches.match(event.request)
-          .then(response => {
-            return response || new Response('Offline - Content not available', {
-              status: 503,
-              statusText: 'Service Unavailable',
-              headers: new Headers({
-                'Content-Type': 'text/plain'
-              })
-            })
-          })
-      })
+      .catch(() =>
+        caches.match(event.request).then(cached =>
+          cached || caches.match('/index.html')
+        )
+      )
   )
 })

@@ -239,3 +239,10 @@
   .prompts { grid-template-columns: 1fr; }
   .header { flex-direction: column; gap: 20px; }
 }
+
+@media (max-width: 480px) {
+  .page { padding: 16px 14px; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .statCard { padding: 16px 14px; }
+  .statValue { font-size: 22px; }
+}

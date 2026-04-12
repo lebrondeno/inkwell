@@ -157,3 +157,30 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
   .btn { padding: 6px 12px; font-size: 11px; }
   .toast { bottom: 80px; right: 12px; left: 12px; }
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* PWA safe area insets for iOS */
+@supports (padding: max(0px)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Light theme specific card hover */
+:root[data-theme="light"] .card:hover {
+  box-shadow: 0 12px 40px rgba(139, 111, 71, 0.15);
+}
+:root[data-theme="light"] .toast {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+/* Ensure bottom nav clears content on mobile */
+@media (max-width: 768px) {
+  .toast {
+    bottom: 80px;
+  }
+}

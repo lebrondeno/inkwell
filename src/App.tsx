@@ -1,13 +1,7 @@
 /**
  * Inkwell - A Modern Writing Platform
- * 
  * Built with ✦ by lebrondeno
- * GitHub: https://github.com/lebrondeno/inkwell
- * 
- * Features: Authentication, Article Management, Analytics, PWA
- * Tech Stack: React, TypeScript, Supabase, Vercel
  */
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react'
 import { AppProvider, useApp } from './context/AppContext'
@@ -20,6 +14,7 @@ import Analytics from './pages/Analytics'
 import Profile from './pages/Profile'
 import PublicDiscover from './pages/PublicDiscover'
 import PublicArticle from './pages/PublicArticle'
+import PublicProfile from './pages/PublicProfile'
 
 function AppRoutes() {
   const { user, loading } = useApp()
@@ -28,18 +23,20 @@ function AppRoutes() {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', color: 'var(--accent)', fontSize: '32px'
+        height: '100vh', color: 'var(--accent)', fontSize: '32px',
+        flexDirection: 'column', gap: '16px'
       }}>
-        ✦
+        <span style={{ animation: 'spin 2s linear infinite', display: 'block' }}>✦</span>
       </div>
     )
   }
 
   return (
     <Routes>
-      {/* Public routes */}
+      {/* Public routes — no auth needed */}
       <Route path="/discover" element={<PublicDiscover />} />
       <Route path="/articles/:slug" element={<PublicArticle />} />
+      <Route path="/writer/:userId" element={<PublicProfile />} />
 
       {/* Protected routes */}
       {user ? (
@@ -56,7 +53,8 @@ function AppRoutes() {
         </>
       ) : (
         <>
-          <Route path="*" element={<Landing />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </>
       )}
     </Routes>

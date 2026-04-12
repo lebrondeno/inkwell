@@ -5,13 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA meta -->
     <meta name="theme-color" content="#c9a96e" />
-    <meta name="description" content="A beautiful platform for writers to create, publish, and analyze their articles" />
-    <meta name="apple-mobile-web-app-capable" content="true" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Inkwell" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-    <title>Inkwell - Write & Share</title>
+
+    <!-- SEO -->
+    <meta name="description" content="Inkwell — A beautiful writing platform. Create, publish and share your stories." />
+    <meta property="og:title" content="Inkwell — Write & Share" />
+    <meta property="og:description" content="A beautiful platform for writers to create, publish, and analyze their articles." />
+    <meta property="og:type" content="website" />
+
+    <title>Inkwell — Write & Share</title>
   </head>
   <body>
     <div id="root"></div>
@@ -19,9 +28,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {
-            console.log('Service Worker registration failed')
-          })
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .catch(() => {})
         })
       }
     </script>
