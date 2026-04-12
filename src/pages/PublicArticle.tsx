@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Footer from '../components/Footer'
 import type { Article } from '../lib/supabase'
@@ -11,11 +11,12 @@ export default function PublicArticle() {
   const [article, setArticle] = useState<Article | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [author, setAuthor] = useState<{ email: string; full_name?: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [authorName, setAuthorName] = useState<string>('Anonymous')
+  const [authorBio, setAuthorBio] = useState<string>('')
+  const [authorInitials, setAuthorInitials] = useState<string>('?')
 
-  useEffect(() => {
-    loadArticle()
-  }, [slug])
+  useEffect(() => { loadArticle() }, [slug])
 
   const loadArticle = async () => {
     try {
@@ -34,112 +35,156 @@ export default function PublicArticle() {
 
       setArticle(data)
 
-      // Get author info
-      const { data: userData } = await supabase.auth.admin.getUserById(data.user_id)
-      if (userData?.user) {
-        setAuthor({
-          email: userData.user.email || '',
-          full_name: userData.user.user_metadata?.full_name
-        })
+      // Fetch author profile from profiles table (public, no admin needed)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, bio, username')
+        .eq('id', data.user_id)
+        .single()
+
+      if (profile) {
+        const name = profile.full_name || profile.username || 'Anonymous'
+        setAuthorName(name)
+        setAuthorBio(profile.bio || '')
+        setAuthorInitials(name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2))
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load article')
     } finally {
       setLoading(false)
     }
   }
 
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loadingState}>✦ Loading...</div>
+      <div className={styles.wrapper}>
+        <div className={styles.loadingWrapper}>
+          <div className={styles.spinner}>✦</div>
+          <p>Loading article…</p>
+        </div>
+        <Footer />
       </div>
     )
   }
 
   if (error || !article) {
     return (
-      <div className={styles.container}>
-        <div className={styles.errorState}>
-          <h2>Article not found</h2>
-          <p>{error}</p>
-          <button className="btn btn-primary" onClick={() => navigate('/discover')}>
-            ← Back to Articles
-          </button>
+      <div className={styles.wrapper}>
+        <div className={styles.container}>
+          <div className={styles.errorState}>
+            <div className={styles.errorIcon}>✦</div>
+            <h2>Article not found</h2>
+            <p>This article may have been removed or is not yet published.</p>
+            <button className="btn btn-primary" onClick={() => navigate('/discover')}>
+              ← Back to Discover
+            </button>
+          </div>
         </div>
+        <Footer />
       </div>
     )
   }
 
   const publishedDate = new Date(article.created_at).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+    year: 'numeric', month: 'long', day: 'numeric'
   })
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.container}>
-        {/* Header with back button */}
-        <button className={styles.backBtn} onClick={() => navigate('/discover')}>
-          ← Back to Articles
+      {/* Top nav bar */}
+      <nav className={styles.topNav}>
+        <Link to="/discover" className={styles.backBtn}>
+          <span>←</span> Discover
+        </Link>
+        <span className={styles.navLogo}>✦ Inkwell</span>
+        <button className={`${styles.copyBtn} ${copied ? styles.copiedBtn : ''}`} onClick={copyLink}>
+          {copied ? '✓ Copied!' : '🔗 Share'}
         </button>
+      </nav>
 
-        {/* Article content */}
+      <div className={styles.container}>
         <article className={styles.article}>
-          {/* Cover emoji + title */}
-          <div className={styles.cover}>
+          {/* Hero */}
+          <div className={styles.hero}>
             <span className={styles.emoji}>{article.cover_emoji || '✦'}</span>
             <h1 className={styles.title}>{article.title}</h1>
           </div>
 
-          {/* Article meta */}
-          <div className={styles.meta}>
-            <div className={styles.metaLeft}>
-              <span className={styles.author}>
-                by <strong>{author?.full_name || author?.email?.split('@')[0] || 'Anonymous'}</strong>
-              </span>
-              <span className={styles.date}>{publishedDate}</span>
+          {/* Meta row */}
+          <div className={styles.metaRow}>
+            {/* Author card (clickable — public profile) */}
+            <Link to={`/writer/${article.user_id}`} className={styles.authorCard}>
+              <div className={styles.authorAvatar}>{authorInitials}</div>
+              <div className={styles.authorInfo}>
+                <span className={styles.authorName}>{authorName}</span>
+                {authorBio && <span className={styles.authorBio}>{authorBio}</span>}
+              </div>
+            </Link>
+
+            <div className={styles.metaRight}>
+              <span className={styles.metaDate}>{publishedDate}</span>
               {article.reading_time && (
-                <>
-                  <span className={styles.separator}>·</span>
-                  <span className={styles.readingTime}>{article.reading_time} min read</span>
-                </>
+                <span className={styles.metaRead}>{article.reading_time} min read</span>
               )}
             </div>
-            {article.tags && article.tags.length > 0 && (
-              <div className={styles.tags}>
-                {article.tags.map((tag: string) => (
-                  <span key={tag} className={styles.tag}>{tag}</span>
-                ))}
-              </div>
+          </div>
+
+          {/* Tags */}
+          {article.tags && article.tags.length > 0 && (
+            <div className={styles.tags}>
+              {article.tags.map((tag: string) => (
+                <span key={tag} className={styles.tag}>{tag}</span>
+              ))}
+            </div>
+          )}
+
+          <div className={styles.divider} />
+
+          {/* Body */}
+          <div className={styles.body}>
+            {article.content?.split('\n').map((para, idx) =>
+              para.trim() ? (
+                <p key={idx} className={styles.paragraph}>{para}</p>
+              ) : (
+                <div key={idx} className={styles.spacer} />
+              )
             )}
           </div>
 
-          {/* Divider */}
-          <div className={styles.divider} />
-
-          {/* Article body */}
-          <div className={styles.body}>
-            {article.content?.split('\n').map((para, idx) => (
-              para.trim() && (
-                <p key={idx} className={styles.paragraph}>
-                  {para}
-                </p>
-              )
-            ))}
+          {/* Share section */}
+          <div className={styles.shareSection}>
+            <p className={styles.shareLabel}>Enjoyed this piece? Share it.</p>
+            <div className={styles.shareRow}>
+              <div className={styles.linkBox}>
+                <input
+                  readOnly
+                  value={window.location.href}
+                  className={styles.linkInput}
+                  onFocus={e => e.target.select()}
+                />
+              </div>
+              <button className={`${styles.shareCopyBtn} ${copied ? styles.shareCopied : ''}`} onClick={copyLink}>
+                {copied ? '✓ Copied' : '📋 Copy Link'}
+              </button>
+            </div>
           </div>
 
-          {/* Share section */}
-          <div className={styles.share}>
-            <button
-              className={styles.shareBtn}
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href)
-              }}
-            >
-              📋 Copy Link
-            </button>
+          {/* Author bio card */}
+          <div className={styles.authorBioCard}>
+            <Link to={`/writer/${article.user_id}`} className={styles.authorBigCard}>
+              <div className={styles.authorBigAvatar}>{authorInitials}</div>
+              <div>
+                <p className={styles.authorBigName}>{authorName}</p>
+                {authorBio && <p className={styles.authorBigBio}>{authorBio}</p>}
+                <span className={styles.authorProfileLink}>View profile →</span>
+              </div>
+            </Link>
           </div>
         </article>
       </div>
