@@ -21,13 +21,21 @@ export default function Articles() {
   const [filter, setFilter] = useState<ArticleStatus | 'all'>('all')
   const [search, setSearch] = useState('')
 
-  useEffect(() => { fetchArticles() }, [])
+  useEffect(() => {
+    if (!user?.id) {
+      setArticles([])
+      setLoading(false)
+      return
+    }
+    fetchArticles(user.id)
+  }, [user?.id])
 
-  const fetchArticles = async () => {
+  const fetchArticles = async (userId: string) => {
+    setLoading(true)
     const { data } = await supabase
       .from('articles')
       .select('*')
-      .eq('user_id', user?.id)
+      .eq('user_id', userId)
       .order('updated_at', { ascending: false })
     setArticles(data || [])
     setLoading(false)
@@ -35,10 +43,21 @@ export default function Articles() {
 
   const deleteArticle = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Delete this article?')) return
-    await supabase.from('articles').delete().eq('id', id)
-    setArticles(prev => prev.filter(a => a.id !== id))
-    showToast('Article deleted')
+    if (!confirm('Archive this article? You can still recover it later.')) return
+    const { error } = await supabase
+      .from('articles')
+      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      showToast('Could not archive article', 'error')
+      return
+    }
+
+    setArticles(prev =>
+      prev.map(a => a.id === id ? { ...a, status: 'archived', updated_at: new Date().toISOString() } : a)
+    )
+    showToast('Article archived')
   }
 
   const filtered = articles.filter(a => {
@@ -119,7 +138,7 @@ export default function Articles() {
                 <button
                   className={styles.deleteBtn}
                   onClick={e => deleteArticle(article.id, e)}
-                  title="Delete"
+                  title="Archive"
                 >
                   ✕
                 </button>
