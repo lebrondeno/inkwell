@@ -122,3 +122,8 @@
 @media (max-width: 480px) {
   .page { padding: 16px 14px; }
 }
+
+.viewBadge {
+  color: var(--accent);
+  font-weight: 600;
+}

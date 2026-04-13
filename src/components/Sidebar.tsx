@@ -4,15 +4,15 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import styles from './Sidebar.module.css'
 
-const NAV = [
-  { icon: '◈', label: 'Dashboard',  path: '/app' },
-  { icon: '✦', label: 'My Articles',path: '/app/articles' },
-  { icon: '◉', label: 'Write',      path: '/app/write', badge: 'New' },
-  { icon: '⊡', label: 'Analytics',  path: '/app/analytics' },
-  { icon: '◎', label: 'Profile',    path: '/app/profile' },
+const NAV_MAIN = [
+  { icon: '◈', label: 'Dashboard',   path: '/app' },
+  { icon: '✦', label: 'My Articles', path: '/app/articles' },
+  { icon: '◉', label: 'Write',       path: '/app/write', badge: 'New' },
+  { icon: '⊡', label: 'Analytics',   path: '/app/analytics' },
+  { icon: '🔖', label: 'Bookmarks',  path: '/app/bookmarks' },
+  { icon: '◎', label: 'Profile',     path: '/app/profile' },
 ]
-
-const NAV_BOTTOM = [
+const NAV_EXTRA = [
   { icon: '⟡', label: 'Discover',   path: '/discover' },
 ]
 
@@ -29,32 +29,22 @@ export default function Sidebar() {
   }
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Writer'
-  const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-
-  const isActive = (path: string) =>
-    path === '/app' ? location.pathname === '/app' : location.pathname.startsWith(path)
+  const initials    = displayName.split(' ').map((n:string) => n[0]).join('').toUpperCase().slice(0, 2)
+  const isActive    = (path: string) => path === '/app' ? location.pathname === '/app' : location.pathname.startsWith(path)
 
   return (
     <aside className={styles.sidebar}>
-      {/* Logo */}
       <div className={styles.logo}>
         <span className={styles.mark}>✦</span>
         <span className={styles.name}>Inkwell</span>
-        {/* Theme toggle right in logo bar */}
-        <button
-          className={styles.themeBtn}
-          onClick={toggleTheme}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          aria-label="Toggle theme"
-        >
+        <button className={styles.themeBtn} onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
           {theme === 'dark' ? '☀' : '☾'}
         </button>
       </div>
 
-      {/* Main Nav */}
       <nav className={styles.nav}>
         <p className={styles.navLabel}>Navigation</p>
-        {NAV.map(item => (
+        {NAV_MAIN.map(item => (
           <button
             key={item.path}
             className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
@@ -68,7 +58,7 @@ export default function Sidebar() {
 
         <div className={styles.navDivider} />
         <p className={styles.navLabel}>Explore</p>
-        {NAV_BOTTOM.map(item => (
+        {NAV_EXTRA.map(item => (
           <button
             key={item.path}
             className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
@@ -80,7 +70,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom user card */}
       <div className={styles.bottom}>
         <div className={styles.userCard}>
           <div className={styles.avatar}>{initials}</div>
@@ -89,11 +78,7 @@ export default function Sidebar() {
             <p className={styles.userEmail}>{user?.email}</p>
           </div>
         </div>
-        <button
-          className={styles.signOut}
-          onClick={handleSignOut}
-          disabled={signingOut}
-        >
+        <button className={styles.signOut} onClick={handleSignOut} disabled={signingOut}>
           {signingOut ? '…' : '→ Sign out'}
         </button>
       </div>

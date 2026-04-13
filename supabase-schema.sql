@@ -124,3 +124,76 @@ $$ language plpgsql security definer;
 -- ================================================
 -- Done. Your database is ready.
 -- ================================================
+
+-- ── Article Reactions (likes) ──────────────────────
+-- One reaction per user per article (toggle)
+create table if not exists public.article_reactions (
+  id         uuid        default gen_random_uuid() primary key,
+  article_id uuid        references public.articles(id) on delete cascade not null,
+  user_id    uuid        references auth.users(id) on delete cascade not null,
+  emoji      text        default '❤️',
+  created_at timestamptz default now(),
+  unique(article_id, user_id)
+);
+
+alter table public.article_reactions enable row level security;
+
+drop policy if exists "Public can view reactions"     on public.article_reactions;
+drop policy if exists "Users can manage own reactions" on public.article_reactions;
+
+create policy "Public can view reactions"
+  on public.article_reactions for select using (true);
+
+create policy "Users can manage own reactions"
+  on public.article_reactions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ── Article Comments ────────────────────────────────
+create table if not exists public.article_comments (
+  id         uuid        default gen_random_uuid() primary key,
+  article_id uuid        references public.articles(id) on delete cascade not null,
+  user_id    uuid        references auth.users(id) on delete cascade not null,
+  body       text        not null check (char_length(body) between 1 and 1000),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.article_comments enable row level security;
+
+drop policy if exists "Public can view comments"      on public.article_comments;
+drop policy if exists "Users can insert own comments" on public.article_comments;
+drop policy if exists "Users can delete own comments" on public.article_comments;
+
+create policy "Public can view comments"
+  on public.article_comments for select using (true);
+
+create policy "Users can insert own comments"
+  on public.article_comments for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete own comments"
+  on public.article_comments for delete
+  using (auth.uid() = user_id);
+
+-- ── Bookmarks ───────────────────────────────────────
+create table if not exists public.bookmarks (
+  id         uuid        default gen_random_uuid() primary key,
+  article_id uuid        references public.articles(id) on delete cascade not null,
+  user_id    uuid        references auth.users(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  unique(article_id, user_id)
+);
+
+alter table public.bookmarks enable row level security;
+
+drop policy if exists "Users can manage own bookmarks" on public.bookmarks;
+
+create policy "Users can manage own bookmarks"
+  on public.bookmarks for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ================================================
+-- Schema update complete.
+-- ================================================

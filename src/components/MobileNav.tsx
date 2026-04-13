@@ -3,37 +3,46 @@ import { useApp } from '../context/AppContext'
 import styles from './MobileNav.module.css'
 
 const NAV_ITEMS = [
-  { icon: '◈', label: 'Home',      path: '/app' },
-  { icon: '✦', label: 'Articles',  path: '/app/articles' },
-  { icon: '◉', label: 'Write',     path: '/app/write' },
-  { icon: '⊡', label: 'Stats',     path: '/app/analytics' },
-  { icon: '⟡', label: 'Discover',  path: '/discover' },
+  { icon: '◈', label: 'Home',     path: '/app' },
+  { icon: '✦', label: 'Articles', path: '/app/articles' },
+  { icon: '◉', label: 'Write',    path: '/app/write' },
+  { icon: '⊡', label: 'Stats',    path: '/app/analytics' },
+  { icon: '◎', label: 'Profile',  path: '/app/profile' },
 ]
 
 export default function MobileNav() {
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const { theme, toggleTheme } = useApp()
 
   return (
     <>
-      {/* Mobile Top Bar */}
+      {/* ── Top Bar ── */}
       <div className={styles.topBar}>
         <div className={styles.logo}>
           <span className={styles.logoMark}>✦</span>
           <span>Inkwell</span>
         </div>
-        <button
-          className={styles.themeToggle}
-          onClick={toggleTheme}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? '☀' : '☾'}
-        </button>
+        <div className={styles.topActions}>
+          <button
+            className={styles.discoverLink}
+            onClick={() => navigate('/discover')}
+            title="Discover articles"
+          >
+            ⟡ Discover
+          </button>
+          <button
+            className={styles.themeToggle}
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* ── Bottom Nav ── */}
       <nav className={styles.bottomNav} role="navigation" aria-label="Main navigation">
         {NAV_ITEMS.map(item => {
           const isActive = item.path === '/app'

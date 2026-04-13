@@ -45,10 +45,11 @@ export default function Dashboard() {
   }
 
   const stats = {
-    total: myArticles.length,
+    total:     myArticles.length,
     published: myArticles.filter(a => a.status === 'published').length,
-    drafts: myArticles.filter(a => a.status === 'draft').length,
-    words: myArticles.reduce((sum, a) => sum + (a.word_count || 0), 0),
+    drafts:    myArticles.filter(a => a.status === 'draft').length,
+    words:     myArticles.reduce((sum, a) => sum + (a.word_count || 0), 0),
+    views:     myArticles.reduce((sum, a) => sum + (a.view_count || 0), 0),
   }
 
   const hour = new Date().getHours()
@@ -71,10 +72,10 @@ export default function Dashboard() {
       {/* Stats */}
       <div className={styles.stats}>
         {[
-          { label: 'Total Articles', value: stats.total, icon: '◈' },
-          { label: 'Published', value: stats.published, icon: '◉' },
-          { label: 'Drafts', value: stats.drafts, icon: '◎' },
-          { label: 'Words Written', value: stats.words.toLocaleString(), icon: '⊡' },
+          { label: 'Total Articles', value: stats.total,                 icon: '◈' },
+          { label: 'Published',      value: stats.published,              icon: '◉' },
+          { label: 'Total Views',    value: stats.views.toLocaleString(), icon: '👁' },
+          { label: 'Words Written',  value: stats.words.toLocaleString(), icon: '⊡' },
         ].map(s => (
           <div key={s.label} className={styles.statCard}>
             <span className={styles.statIcon}>{s.icon}</span>
