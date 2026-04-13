@@ -60,6 +60,39 @@ export default function Articles() {
     showToast('Article archived')
   }
 
+  const restoreArticle = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const { error } = await supabase
+      .from('articles')
+      .update({ status: 'draft', updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      showToast('Could not restore article', 'error')
+      return
+    }
+
+    setArticles(prev =>
+      prev.map(a => a.id === id ? { ...a, status: 'draft', updated_at: new Date().toISOString() } : a)
+    )
+    showToast('Article restored to drafts')
+  }
+
+  const deleteArticleForever = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const confirmed = confirm('Permanently delete this archived article? This cannot be undone.')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('articles').delete().eq('id', id)
+    if (error) {
+      showToast('Could not permanently delete article', 'error')
+      return
+    }
+
+    setArticles(prev => prev.filter(a => a.id !== id))
+    showToast('Article permanently deleted')
+  }
+
   const filtered = articles.filter(a => {
     const matchFilter = filter === 'all' || a.status === filter
     const matchSearch = !search || 
@@ -184,6 +217,26 @@ export default function Articles() {
                   >
                     ↗ View live
                   </a>
+                )}
+                {article.status === 'archived' && (
+                  <div className={styles.trashActions} onClick={e => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={styles.restoreBtn}
+                      onClick={e => restoreArticle(article.id, e)}
+                      title="Restore to drafts"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deleteForeverBtn}
+                      onClick={e => deleteArticleForever(article.id, e)}
+                      title="Delete forever"
+                    >
+                      Delete forever
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

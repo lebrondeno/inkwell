@@ -16,28 +16,37 @@ export default function Dashboard() {
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || 'Writer'
 
   useEffect(() => {
-    fetchMyArticles()
-    fetchCommunity()
-  }, [])
+    if (!user?.id) {
+      setMyArticles([])
+      setCommunity([])
+      setLoading(false)
+      setCommunityLoading(false)
+      return
+    }
+    fetchMyArticles(user.id)
+    fetchCommunity(user.id)
+  }, [user?.id])
 
-  const fetchMyArticles = async () => {
+  const fetchMyArticles = async (userId: string) => {
+    setLoading(true)
     const { data } = await supabase
       .from('articles')
       .select('*')
-      .eq('user_id', user?.id)
+      .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(5)
     setMyArticles(data || [])
     setLoading(false)
   }
 
-  const fetchCommunity = async () => {
+  const fetchCommunity = async (userId: string) => {
+    setCommunityLoading(true)
     // Fetch latest published articles from ALL writers (not just current user)
     const { data } = await supabase
       .from('articles')
       .select('*')
       .eq('status', 'published')
-      .neq('user_id', user?.id)          // exclude own articles
+      .neq('user_id', userId)          // exclude own articles
       .order('created_at', { ascending: false })
       .limit(4)
     setCommunity(data || [])
