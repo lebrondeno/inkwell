@@ -53,7 +53,7 @@ export default function BibleVerseBlock({ reference, compact = false }: Props) {
           <div className={styles.meta}>
             <span className={styles.reference}>{verse.reference}</span>
             <span className={styles.dot}>·</span>
-            <span className={styles.translation}>{verse.translation_name || 'NIV'}</span>
+            <span className={styles.translation}>{verse.translation_name || 'Bible'}</span>
           </div>
         </div>
       </div>

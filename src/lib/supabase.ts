@@ -271,9 +271,15 @@ export async function reviewCommunityPost(postId: string, status: 'approved' | '
 export async function fetchBibleVerse(reference: string): Promise<BibleVerse | null> {
   try {
     const encoded = encodeURIComponent(reference)
-    const res = await fetch(`https://bible-api.com/${encoded}?translation=NIV`)
-    if (!res.ok) return null
-    return await res.json()
+    // NIV is not available on bible-api.com, so try default first.
+    const primary = await fetch(`https://bible-api.com/${encoded}`)
+    if (primary.ok) return await primary.json()
+
+    // Fallback to a known-supported translation if default fails.
+    const fallback = await fetch(`https://bible-api.com/${encoded}?translation=kjv`)
+    if (fallback.ok) return await fallback.json()
+
+    return null
   } catch { return null }
 }
 

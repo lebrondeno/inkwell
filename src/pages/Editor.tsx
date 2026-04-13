@@ -12,6 +12,17 @@ import styles from './Editor.module.css'
 
 const EMOJIS = ['✦', '✍️', '🕯️', '🌿', '🔥', '💡', '🌊', '⚡', '🎯', '📖', '🌙', '☀️', '🦋', '🌸', '⭐']
 const TONES = ['formal', 'casual', 'poetic', 'devotional', 'academic', 'journalistic']
+const WRITING_FONTS = [
+  { id: 'playfair', label: 'Playfair', css: "'Playfair Display', serif" },
+  { id: 'lora', label: 'Lora', css: "'Lora', serif" },
+  { id: 'merriweather', label: 'Merriweather', css: "'Merriweather', serif" },
+  { id: 'source-serif', label: 'Source Serif', css: "'Source Serif 4', serif" },
+  { id: 'calibri', label: 'Calibri', css: "Calibri, 'Segoe UI', sans-serif" },
+  { id: 'arial', label: 'Arial', css: "Arial, Helvetica, sans-serif" },
+  { id: 'georgia', label: 'Georgia', css: "Georgia, serif" },
+  { id: 'times', label: 'Times New Roman', css: "'Times New Roman', Times, serif" },
+  { id: 'courier', label: 'Courier New', css: "'Courier New', Courier, monospace" },
+]
 
 export default function Editor() {
   const { id } = useParams()
@@ -44,6 +55,8 @@ export default function Editor() {
   const [selectedTone, setSelectedTone] = useState('formal')
   const [customPromptText, setCustomPromptText] = useState('')
   const [useArticleContext, setUseArticleContext] = useState(true)
+  const [titleFont, setTitleFont] = useState(() => localStorage.getItem('title_font') || 'playfair')
+  const [bodyFont, setBodyFont] = useState(() => localStorage.getItem('body_font') || 'playfair')
 
   useEffect(() => {
     if (id) loadArticle(id)
@@ -54,6 +67,14 @@ export default function Editor() {
     setWordCount(words)
     setReadingTime(Math.ceil(words / 200))
   }, [article.content])
+
+  useEffect(() => {
+    localStorage.setItem('title_font', titleFont)
+  }, [titleFont])
+
+  useEffect(() => {
+    localStorage.setItem('body_font', bodyFont)
+  }, [bodyFont])
 
   useEffect(() => {
     if (!saved) {
@@ -106,6 +127,56 @@ export default function Editor() {
     setTagInput(val)
     const tags = val.split(',').map(t => t.trim()).filter(Boolean)
     handleChange('tags', tags)
+  }
+
+  const applyInlineFormat = (prefix: string, suffix = prefix, placeholder = 'text') => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart || 0
+    const end = textarea.selectionEnd || 0
+    const current = article.content || ''
+    const selected = current.slice(start, end) || placeholder
+    const replacement = `${prefix}${selected}${suffix}`
+    const updated = current.slice(0, start) + replacement + current.slice(end)
+
+    handleChange('content', updated)
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const caret = start + replacement.length
+      textarea.setSelectionRange(caret, caret)
+    })
+  }
+
+  const applyLinePrefix = (prefix: string) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const current = article.content || ''
+    const start = textarea.selectionStart || 0
+    const end = textarea.selectionEnd || 0
+    const lineStart = current.lastIndexOf('\n', Math.max(0, start - 1)) + 1
+    const lineEndBreak = current.indexOf('\n', end)
+    const lineEnd = lineEndBreak === -1 ? current.length : lineEndBreak
+    const selectedLines = current.slice(lineStart, lineEnd)
+    const prefixed = selectedLines
+      .split('\n')
+      .map(line => (line.trim() ? `${prefix}${line}` : line))
+      .join('\n')
+
+    const updated = current.slice(0, lineStart) + prefixed + current.slice(lineEnd)
+    handleChange('content', updated)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      textarea.setSelectionRange(lineStart, lineStart + prefixed.length)
+    })
+  }
+
+  const insertLink = () => {
+    const url = window.prompt('Enter link URL (https://...)')
+    if (!url) return
+    applyInlineFormat('[', `](${url})`, 'link text')
   }
 
   const runAI = async (action: string) => {
@@ -199,6 +270,8 @@ export default function Editor() {
   }
 
   const statusColor = article.status === 'published' ? 'var(--green)' : article.status === 'archived' ? 'var(--red)' : 'var(--text-muted)'
+  const titleFontFamily = WRITING_FONTS.find(f => f.id === titleFont)?.css || "'Playfair Display', serif"
+  const bodyFontFamily = WRITING_FONTS.find(f => f.id === bodyFont)?.css || "'Playfair Display', serif"
 
   return (
     <div className={`${styles.wrapper} ${focusMode ? styles.focusMode : ''}`}>
@@ -229,6 +302,34 @@ export default function Editor() {
         </div>
 
         <div className={styles.toolbarRight}>
+          <div className={styles.fontGroup}>
+            <label className={styles.fontLabel} htmlFor="title-font-select">Title</label>
+            <select
+              id="title-font-select"
+              className={styles.fontSelect}
+              value={titleFont}
+              onChange={e => setTitleFont(e.target.value)}
+              title="Change title font"
+            >
+              {WRITING_FONTS.map(font => (
+                <option key={font.id} value={font.id}>{font.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.fontGroup}>
+            <label className={styles.fontLabel} htmlFor="body-font-select">Body</label>
+            <select
+              id="body-font-select"
+              className={styles.fontSelect}
+              value={bodyFont}
+              onChange={e => setBodyFont(e.target.value)}
+              title="Change body font"
+            >
+              {WRITING_FONTS.map(font => (
+                <option key={font.id} value={font.id}>{font.label}</option>
+              ))}
+            </select>
+          </div>
           <button
             className={`${styles.toolBtn} ${focusMode ? styles.active : ''}`}
             onClick={() => setFocusMode(!focusMode)}
@@ -267,6 +368,7 @@ export default function Editor() {
 
             <textarea
               className={styles.titleInput}
+              style={{ fontFamily: titleFontFamily }}
               placeholder="Title your piece..."
               value={article.title}
               onChange={e => handleChange('title', e.target.value)}
@@ -306,10 +408,41 @@ export default function Editor() {
 
           <div className={styles.divider} />
 
+          <div className={styles.formatBar}>
+            <button type="button" className={styles.formatBtn} onClick={() => applyInlineFormat('**')} title="Bold">
+              B
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyInlineFormat('*')} title="Italic">
+              I
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyInlineFormat('==')} title="Underline">
+              U
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyLinePrefix('# ')} title="Heading 1">
+              H1
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyLinePrefix('## ')} title="Heading 2">
+              H2
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyLinePrefix('- ')} title="Bullet list">
+              • List
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyLinePrefix('1. ')} title="Numbered list">
+              1. List
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={() => applyLinePrefix('> ')} title="Quote">
+              Quote
+            </button>
+            <button type="button" className={styles.formatBtn} onClick={insertLink} title="Insert link">
+              Link
+            </button>
+          </div>
+
           {/* Content */}
           <textarea
             ref={textareaRef}
             className={styles.contentInput}
+            style={{ fontFamily: bodyFontFamily }}
             placeholder="Begin writing. Your thoughts deserve a beautiful home..."
             value={article.content}
             onChange={e => handleChange('content', e.target.value)}
