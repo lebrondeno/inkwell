@@ -145,13 +145,27 @@ export default function Articles() {
                 </div>
               </div>
 
-              {article.word_count > 0 && (
-                <div className={styles.cardStats}>
-                  <span>{article.word_count} words</span>
-                  <span>·</span>
-                  <span>{article.reading_time} min read</span>
-                </div>
-              )}
+              <div className={styles.cardBottom}>
+                {article.word_count > 0 && (
+                  <div className={styles.cardStats}>
+                    <span>{article.word_count} words</span>
+                    <span>·</span>
+                    <span>{article.reading_time} min read</span>
+                  </div>
+                )}
+                {article.status === 'published' && article.slug && (
+                  <a
+                    href={`/articles/${article.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.viewLiveBtn}
+                    onClick={e => e.stopPropagation()}
+                    title="View live article"
+                  >
+                    ↗ View live
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, upsertProfile } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
 type Theme = 'dark' | 'light'
@@ -38,6 +38,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      // Sync writer_profiles whenever user logs in (bootstraps existing users)
+      if (session?.user) {
+        const u = session.user
+        const name = u.user_metadata?.full_name || ''
+        const bio = u.user_metadata?.bio || ''
+        upsertProfile(u.id, name, bio).catch(() => {})
+      }
     })
 
     return () => subscription.unsubscribe()

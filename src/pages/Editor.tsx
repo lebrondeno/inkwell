@@ -165,8 +165,34 @@ export default function Editor() {
       showToast('Please write some content before publishing', 'error')
       return
     }
-    handleChange('status', 'published')
-    await autoSave()
+
+    // Build final payload with status = 'published' directly (avoid state race condition)
+    setSaving(true)
+    const payload = {
+      ...article,
+      status: 'published',
+      user_id: user?.id,
+      word_count: wordCount,
+      reading_time: readingTime,
+      updated_at: new Date().toISOString(),
+    }
+
+    let finalSlug = article.slug
+    if (article.id) {
+      await supabase.from('articles').update(payload).eq('id', article.id)
+    } else {
+      finalSlug = (article.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now()
+      const { data } = await supabase.from('articles').insert({ ...payload, slug: finalSlug }).select().single()
+      if (data) {
+        setArticle(prev => ({ ...prev, id: data.id, slug: data.slug, status: 'published' }))
+        finalSlug = data.slug
+        navigate(`/app/write/${data.id}`, { replace: true })
+      }
+    }
+
+    setArticle(prev => ({ ...prev, status: 'published', slug: finalSlug || prev.slug }))
+    setSaving(false)
+    setSaved(true)
     setShowPublishModal(true)
   }
 

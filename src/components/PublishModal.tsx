@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styles from './PublishModal.module.css'
 
 interface PublishModalProps {
@@ -8,53 +9,66 @@ interface PublishModalProps {
 
 export default function PublishModal({ articleSlug, articleTitle, onClose }: PublishModalProps) {
   const shareLink = `${window.location.origin}/articles/${articleSlug}`
+  const [copied, setCopied] = useState(false)
 
-  const copyToClipboard = () => {
+  const copyLink = () => {
     navigator.clipboard.writeText(shareLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
   }
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h2>✓ Article Published!</h2>
-          <button className={styles.close} onClick={onClose}>✕</button>
+        {/* Success header */}
+        <div className={styles.successHeader}>
+          <div className={styles.checkmark}>✓</div>
+          <h2 className={styles.successTitle}>Published!</h2>
+          <p className={styles.successSub}>Your article is live — anyone can read it now.</p>
         </div>
 
-        <div className={styles.content}>
-          <p className={styles.subtitle}>Your article is now live and anyone can view it!</p>
-          
-          <div className={styles.titleBox}>
-            <p className={styles.articleTitle}>{articleTitle}</p>
+        <div className={styles.body}>
+          {/* Article title */}
+          <div className={styles.articlePreview}>
+            <span className={styles.previewEmoji}>✦</span>
+            <span className={styles.previewTitle}>{articleTitle}</span>
           </div>
 
-          <div className={styles.linkBox}>
-            <label>📋 Share this link:</label>
-            <div className={styles.linkContainer}>
-              <input 
-                type="text" 
-                readOnly 
+          {/* Share link */}
+          <div className={styles.linkSection}>
+            <p className={styles.linkLabel}>🔗 Shareable link</p>
+            <div className={styles.linkRow}>
+              <input
+                type="text"
+                readOnly
                 value={shareLink}
                 className={styles.linkInput}
-                onClick={e => {
-                  (e.target as HTMLInputElement).select()
-                  copyToClipboard()
-                }}
+                onFocus={e => { e.target.select(); copyLink() }}
               />
-              <button className={styles.copyBtn} onClick={copyToClipboard} title="Copy to clipboard">
-                Copy
+              <button
+                className={`${styles.copyBtn} ${copied ? styles.copied : ''}`}
+                onClick={copyLink}
+              >
+                {copied ? '✓ Copied!' : 'Copy'}
               </button>
             </div>
-            <p className={styles.linkHint}>Click the link or button to copy</p>
           </div>
 
+          {/* Actions */}
           <div className={styles.actions}>
-            <button className="btn btn-ghost" onClick={onClose}>Close</button>
-            <a href={shareLink} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+            <button className="btn btn-ghost" onClick={onClose}>Done</button>
+            <a
+              href={shareLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary"
+            >
               View Article →
             </a>
           </div>
         </div>
+
+        <button className={styles.closeX} onClick={onClose} aria-label="Close">✕</button>
       </div>
     </div>
   )
