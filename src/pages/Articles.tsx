@@ -146,13 +146,14 @@ export default function Articles() {
               </div>
 
               <div className={styles.cardBottom}>
-                {article.word_count > 0 && (
-                  <div className={styles.cardStats}>
-                    <span>{article.word_count} words</span>
-                    <span>·</span>
-                    <span>{article.reading_time} min read</span>
-                  </div>
-                )}
+                <div className={styles.cardStats}>
+                  {article.word_count > 0 && (
+                    <><span>{article.word_count} words</span><span>·</span><span>{article.reading_time} min read</span></>
+                  )}
+                  {article.status === 'published' && (article.view_count || 0) > 0 && (
+                    <><span>·</span><span className={styles.viewBadge}>👁 {article.view_count?.toLocaleString()}</span></>
+                  )}
+                </div>
                 {article.status === 'published' && article.slug && (
                   <a
                     href={`/articles/${article.slug}`}
