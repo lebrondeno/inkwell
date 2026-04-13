@@ -300,3 +300,11 @@
 @media (max-width: 600px) {
   .topStrip { padding: 0 16px; }
 }
+
+@media (max-width: 480px) {
+  .landing { grid-template-columns: 1fr; }
+  .left { padding: 28px 18px; }
+  .right { padding: 24px 18px 40px; }
+  .headline { font-size: 28px; }
+  .authCard { padding: 24px 18px; }
+}

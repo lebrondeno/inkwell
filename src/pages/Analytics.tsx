@@ -22,12 +22,13 @@ export default function Analytics() {
       })
   }, [])
 
-  const totalWords = articles.reduce((s, a) => s + (a.word_count || 0), 0)
-  const published = articles.filter(a => a.status === 'published')
-  const avgWords = articles.length ? Math.round(totalWords / articles.length) : 0
-  const totalReadingTime = articles.reduce((s, a) => s + (a.reading_time || 0), 0)
+  const totalWords     = articles.reduce((s, a) => s + (a.word_count || 0), 0)
+  const published      = articles.filter(a => a.status === 'published')
+  const avgWords       = articles.length ? Math.round(totalWords / articles.length) : 0
+  const totalViews     = articles.reduce((s, a) => s + (a.view_count || 0), 0)
+  const totalReadTime  = articles.reduce((s, a) => s + (a.reading_time || 0), 0)
 
-  // Activity heatmap data — last 30 days
+  // Activity heatmap — last 30 days
   const last30 = eachDayOfInterval({ start: subDays(new Date(), 29), end: new Date() })
   const activityMap: Record<string, number> = {}
   articles.forEach(a => {
@@ -41,9 +42,15 @@ export default function Analytics() {
   const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 8)
   const maxTag = topTags[0]?.[1] || 1
 
-  // Words per article for chart
-  const chartArticles = articles.slice(-10)
-  const maxBarWords = Math.max(...chartArticles.map(a => a.word_count || 0), 1)
+  // Words per article bar chart (last 10)
+  const chartArticles  = articles.slice(-10)
+  const maxBarWords    = Math.max(...chartArticles.map(a => a.word_count || 0), 1)
+
+  // Top articles by views
+  const topByViews = [...published]
+    .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+    .slice(0, 5)
+  const maxViews = topByViews[0]?.view_count || 1
 
   if (loading) {
     return (
@@ -65,18 +72,20 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats */}
       <div className={styles.statsGrid}>
         {[
-          { label: 'Total Articles', value: articles.length, icon: '◈', suffix: '' },
-          { label: 'Words Written', value: totalWords.toLocaleString(), icon: '✦', suffix: '' },
-          { label: 'Published', value: published.length, icon: '◉', suffix: '' },
-          { label: 'Avg. Words', value: avgWords.toLocaleString(), icon: '⊡', suffix: '/article' },
-          { label: 'Reading Time', value: totalReadingTime, icon: '◎', suffix: ' min' },
+          { label: 'Total Articles',  value: articles.length,             icon: '◈', mono: false },
+          { label: 'Words Written',   value: totalWords.toLocaleString(), icon: '✦', mono: false },
+          { label: 'Published',       value: published.length,            icon: '◉', mono: false },
+          { label: 'Total Views',     value: totalViews.toLocaleString(), icon: '◎', mono: false },
+          { label: 'Reading Time',    value: `${totalReadTime} min`,      icon: '⊡', mono: true  },
         ].map(s => (
           <div key={s.label} className={styles.statCard}>
             <span className={styles.statIcon}>{s.icon}</span>
-            <span className={styles.statValue}>{s.value}{s.suffix}</span>
+            <span className={styles.statValue} style={s.mono ? { fontFamily: "'DM Mono', monospace", fontSize: '20px' } : {}}>
+              {s.value}
+            </span>
             <span className={styles.statLabel}>{s.label}</span>
           </div>
         ))}
@@ -88,7 +97,7 @@ export default function Analytics() {
           <h3>Writing Activity <span>last 30 days</span></h3>
           <div className={styles.heatmap}>
             {last30.map(day => {
-              const key = format(day, 'yyyy-MM-dd')
+              const key   = format(day, 'yyyy-MM-dd')
               const count = activityMap[key] || 0
               return (
                 <div
@@ -99,8 +108,8 @@ export default function Analytics() {
                     background: count === 0
                       ? 'var(--bg-hover)'
                       : count === 1
-                        ? 'rgba(201,169,110,0.35)'
-                        : 'rgba(201,169,110,0.75)',
+                        ? 'rgba(201,169,110,0.4)'
+                        : 'rgba(201,169,110,0.8)',
                     border: count > 0 ? '1px solid rgba(201,169,110,0.3)' : '1px solid var(--border)'
                   }}
                 />
@@ -120,17 +129,42 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Word count bar chart */}
+        {/* Top articles by views */}
+        <div className={styles.chartCard}>
+          <h3>Top Articles <span>by views</span></h3>
+          {topByViews.length === 0 ? (
+            <div className={styles.noData}>Publish articles and share them to see views here</div>
+          ) : (
+            <div className={styles.barChart}>
+              {topByViews.map(a => (
+                <div key={a.id} className={styles.barItem}>
+                  <div className={styles.barLabelRow}>
+                    <span className={styles.barLabel}>{a.title?.slice(0, 24) || 'Untitled'}</span>
+                    <span className={styles.barValue}>{(a.view_count || 0).toLocaleString()} views</span>
+                  </div>
+                  <div className={styles.barTrack}>
+                    <div
+                      className={styles.barFill}
+                      style={{ width: `${((a.view_count || 0) / maxViews) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Words per article */}
         <div className={styles.chartCard}>
           <h3>Words per Article <span>recent 10</span></h3>
           {chartArticles.length === 0 ? (
-            <div className={styles.noData}>No data yet</div>
+            <div className={styles.noData}>No articles yet</div>
           ) : (
             <div className={styles.barChart}>
               {chartArticles.map(a => (
                 <div key={a.id} className={styles.barItem}>
                   <div className={styles.barLabelRow}>
-                    <span className={styles.barLabel}>{a.title?.slice(0, 20) || 'Untitled'}</span>
+                    <span className={styles.barLabel}>{a.title?.slice(0, 22) || 'Untitled'}</span>
                     <span className={styles.barValue}>{(a.word_count || 0).toLocaleString()}</span>
                   </div>
                   <div className={styles.barTrack}>
@@ -149,19 +183,20 @@ export default function Analytics() {
         <div className={styles.chartCard}>
           <h3>Status Breakdown</h3>
           <div className={styles.donutWrapper}>
-            {['draft', 'published', 'archived'].map(s => {
+            {['published', 'draft', 'archived'].map(s => {
               const count = articles.filter(a => a.status === s).length
-              const pct = articles.length ? Math.round((count / articles.length) * 100) : 0
+              const pct   = articles.length ? Math.round((count / articles.length) * 100) : 0
               const colors: Record<string, string> = {
-                draft: 'var(--text-muted)',
                 published: 'var(--green)',
-                archived: 'var(--red)',
+                draft:     'var(--text-muted)',
+                archived:  'var(--red)',
               }
               return (
                 <div key={s} className={styles.statusRow}>
                   <div className={styles.statusInfo}>
                     <span className={styles.statusDot} style={{ color: colors[s] }}>●</span>
                     <span className={styles.statusName}>{s}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>{pct}%</span>
                   </div>
                   <div className={styles.statusBar}>
                     <div className={styles.statusTrack}>
@@ -200,6 +235,26 @@ export default function Analytics() {
             </div>
           )}
         </div>
+
+        {/* avg words — only show if has data */}
+        {articles.length > 0 && (
+          <div className={styles.chartCard}>
+            <h3>Writing Stats</h3>
+            <div className={styles.donutWrapper}>
+              {[
+                { label: 'Avg words / article', value: avgWords.toLocaleString() },
+                { label: 'Published rate',       value: `${articles.length ? Math.round((published.length / articles.length) * 100) : 0}%` },
+                { label: 'Total reading time',   value: `${totalReadTime} min` },
+                { label: 'Articles published',   value: published.length.toString() },
+              ].map(row => (
+                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
+                  <span style={{ color: 'var(--text-primary)', fontFamily: "'DM Mono',monospace", fontSize: '12px' }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

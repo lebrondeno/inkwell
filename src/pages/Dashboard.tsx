@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { formatDistanceToNow } from 'date-fns'
@@ -9,30 +9,46 @@ import styles from './Dashboard.module.css'
 export default function Dashboard() {
   const { user } = useApp()
   const navigate = useNavigate()
-  const [articles, setArticles] = useState<Article[]>([])
+  const [myArticles, setMyArticles] = useState<Article[]>([])
+  const [community, setCommunity] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
+  const [communityLoading, setCommunityLoading] = useState(true)
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || 'Writer'
 
   useEffect(() => {
-    fetchArticles()
+    fetchMyArticles()
+    fetchCommunity()
   }, [])
 
-  const fetchArticles = async () => {
+  const fetchMyArticles = async () => {
     const { data } = await supabase
       .from('articles')
       .select('*')
       .eq('user_id', user?.id)
       .order('updated_at', { ascending: false })
       .limit(5)
-    setArticles(data || [])
+    setMyArticles(data || [])
     setLoading(false)
   }
 
+  const fetchCommunity = async () => {
+    // Fetch latest published articles from ALL writers (not just current user)
+    const { data } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('status', 'published')
+      .neq('user_id', user?.id)          // exclude own articles
+      .order('created_at', { ascending: false })
+      .limit(4)
+    setCommunity(data || [])
+    setCommunityLoading(false)
+  }
+
   const stats = {
-    total: articles.length,
-    published: articles.filter(a => a.status === 'published').length,
-    drafts: articles.filter(a => a.status === 'draft').length,
-    words: articles.reduce((sum, a) => sum + (a.word_count || 0), 0),
+    total: myArticles.length,
+    published: myArticles.filter(a => a.status === 'published').length,
+    drafts: myArticles.filter(a => a.status === 'draft').length,
+    words: myArticles.reduce((sum, a) => sum + (a.word_count || 0), 0),
   }
 
   const hour = new Date().getHours()
@@ -68,7 +84,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent articles */}
+      {/* Recent writing */}
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2>Recent Writing</h2>
@@ -81,7 +97,7 @@ export default function Dashboard() {
           <div className={styles.skeletonList}>
             {[1,2,3].map(i => <div key={i} className={`skeleton ${styles.skeletonItem}`} />)}
           </div>
-        ) : articles.length === 0 ? (
+        ) : myArticles.length === 0 ? (
           <div className={styles.empty}>
             <div className={styles.emptyIcon}>✦</div>
             <h3>Your canvas awaits</h3>
@@ -92,7 +108,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className={styles.articleList}>
-            {articles.map((article, i) => (
+            {myArticles.map((article, i) => (
               <div
                 key={article.id}
                 className={styles.articleRow}
@@ -102,7 +118,7 @@ export default function Dashboard() {
                 <div className={styles.articleEmoji}>{article.cover_emoji || '✦'}</div>
                 <div className={styles.articleInfo}>
                   <h3>{article.title || 'Untitled'}</h3>
-                  <p>{article.summary || article.content?.substring(0, 80) || 'No content yet...'}</p>
+                  <p>{article.summary || article.content?.substring(0, 80) || 'No content yet…'}</p>
                 </div>
                 <div className={styles.articleMeta}>
                   <span className={`tag tag-${article.status}`}>{article.status}</span>
@@ -110,7 +126,65 @@ export default function Dashboard() {
                     {formatDistanceToNow(new Date(article.updated_at), { addSuffix: true })}
                   </span>
                 </div>
+                {article.status === 'published' && article.slug && (
+                  <a
+                    className={styles.viewLive}
+                    href={`/articles/${article.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    title="View live article"
+                  >
+                    ↗
+                  </a>
+                )}
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Community section — articles from other writers */}
+      <div className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <h2>✦ From the Community</h2>
+          <button className="btn btn-ghost" onClick={() => navigate('/discover')} style={{ fontSize: '12px', padding: '7px 14px' }}>
+            Discover all →
+          </button>
+        </div>
+
+        {communityLoading ? (
+          <div className={styles.communityGrid}>
+            {[1,2,3,4].map(i => <div key={i} className={`skeleton ${styles.communitySkeletonCard}`} />)}
+          </div>
+        ) : community.length === 0 ? (
+          <div className={styles.communityEmpty}>
+            <p>No community articles yet. Be the first to publish!</p>
+            <button className="btn btn-ghost" style={{ fontSize: '12px', marginTop: '10px' }} onClick={() => navigate('/app/write')}>
+              Start Writing →
+            </button>
+          </div>
+        ) : (
+          <div className={styles.communityGrid}>
+            {community.map((article, i) => (
+              <Link
+                key={article.id}
+                to={`/articles/${article.slug}`}
+                className={styles.communityCard}
+                style={{ animationDelay: `${i * 0.07}s` }}
+              >
+                <div className={styles.communityCardTop}>
+                  <span className={styles.communityEmoji}>{article.cover_emoji || '✦'}</span>
+                  <span className={styles.communityDate}>
+                    {new Date(article.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                <h3 className={styles.communityTitle}>{article.title || 'Untitled'}</h3>
+                <div className={styles.communityFoot}>
+                  <span>{article.reading_time || 5} min read</span>
+                  {(article.view_count || 0) > 0 && <span>{article.view_count} views</span>}
+                </div>
+              </Link>
             ))}
           </div>
         )}
