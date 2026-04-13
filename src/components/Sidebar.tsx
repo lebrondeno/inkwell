@@ -9,6 +9,7 @@ const NAV_MAIN = [
   { icon: '✦', label: 'My Articles', path: '/app/articles' },
   { icon: '◉', label: 'Write',       path: '/app/write', badge: 'New' },
   { icon: '⊡', label: 'Analytics',   path: '/app/analytics' },
+  { icon: '🏛️', label: 'Communities', path: '/app/communities' },
   { icon: '🔖', label: 'Bookmarks',  path: '/app/bookmarks' },
   { icon: '◎', label: 'Profile',     path: '/app/profile' },
 ]

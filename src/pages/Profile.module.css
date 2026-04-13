@@ -78,3 +78,44 @@
 @media (max-width: 480px) {
   .page { padding: 16px 14px; }
 }
+
+/* ── Avatar upload ── */
+.avatarWrap {
+  position: relative;
+  width: 80px; height: 80px;
+  border-radius: 18px;
+  cursor: pointer;
+  overflow: hidden;
+  margin-bottom: 4px;
+  border: 2px solid var(--border-light);
+  transition: border-color 0.2s;
+}
+.avatarWrap:hover { border-color: var(--accent); }
+.avatarWrap:hover .avatarOverlay { opacity: 1; }
+
+.avatarImg { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.avatarInitials {
+  width: 100%; height: 100%;
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-size: 26px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: 0.04em;
+}
+
+.avatarOverlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatarHint {
+  font-size: 10px; color: var(--text-muted);
+  text-align: center; margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.email { font-size: 12px; color: var(--text-muted); }

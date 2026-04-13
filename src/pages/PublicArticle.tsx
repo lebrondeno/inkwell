@@ -10,6 +10,7 @@ import Footer from '../components/Footer'
 import { useApp } from '../context/AppContext'
 import type { Article, Comment } from '../lib/supabase'
 import styles from './PublicArticle.module.css'
+import BibleVerseBlock from '../components/BibleVerseBlock'
 
 export default function PublicArticle() {
   const { slug } = useParams<{ slug: string }>()
@@ -219,6 +220,11 @@ export default function PublicArticle() {
           )}
 
           <div className={styles.divider} />
+
+          {/* ── Bible verse ── */}
+          {article.bible_verse && (
+            <BibleVerseBlock reference={article.bible_verse} />
+          )}
 
           {/* ── Body ── */}
           <div className={styles.body}>

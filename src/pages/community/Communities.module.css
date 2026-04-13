@@ -1,0 +1,83 @@
+.page { padding: 40px 56px; max-width: 1000px; animation: fadeIn 0.4s ease; }
+
+.header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+.header h1 { font-size: 30px; font-weight: 900; margin-bottom: 4px; }
+.header p { color: var(--text-secondary); font-size: 13px; }
+
+.controls { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+
+.categories { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.catBtn {
+  padding: 6px 14px; border-radius: 100px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary); font-size: 12px;
+  cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  white-space: nowrap;
+}
+.catBtn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.catBtn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+.search { max-width: 200px; font-size: 13px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 24px; cursor: pointer; transition: all 0.22s ease;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: fadeUp 0.4s ease both;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+
+.cardTop { display: flex; align-items: center; justify-content: space-between; }
+.emoji { font-size: 28px; line-height: 1; }
+.category { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); background: var(--bg-hover); padding: 3px 8px; border-radius: 100px; }
+.name { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; line-height: 1.3; }
+.desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1; }
+.stats { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); padding-top: 8px; border-top: 1px solid var(--border); }
+
+.skeletonCard { height: 180px; border-radius: var(--radius-lg); }
+
+.empty { text-align: center; padding: 80px 32px; grid-column: 1 / -1; }
+.empty span { font-size: 40px; display: block; margin-bottom: 16px; }
+.empty h3 { font-size: 20px; margin-bottom: 8px; }
+.empty p { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+
+/* Modal */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+.modal {
+  background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl); padding: 32px; width: 100%; max-width: 480px;
+  animation: fadeUp 0.3s ease;
+  max-height: 90vh; overflow-y: auto;
+}
+.modalHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.modalHeader h2 { font-size: 20px; }
+.closeBtn { background: none; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: var(--radius); }
+.closeBtn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.emojiRow { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.emojiOpt { background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius); font-size: 22px; padding: 6px 10px; cursor: pointer; transition: all 0.15s; }
+.emojiOpt:hover { border-color: var(--accent); }
+.emojiActive { border-color: var(--accent) !important; background: var(--accent-glow) !important; }
+
+.form { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.field textarea { resize: vertical; }
+
+.modalActions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 8px; }
+
+@media (max-width: 768px) {
+  .page { padding: 20px 16px; }
+  .header { flex-direction: column; gap: 14px; }
+  .header .btn { width: 100%; justify-content: center; }
+  .controls { flex-direction: column; align-items: stretch; }
+  .search { max-width: 100%; }
+  .grid { grid-template-columns: 1fr; }
+}

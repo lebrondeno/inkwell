@@ -38,6 +38,7 @@ export default function Editor() {
   const [focusMode, setFocusMode] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const [bibleVerseInput, setBibleVerseInput] = useState('')
   const [wordCount, setWordCount] = useState(0)
   const [readingTime, setReadingTime] = useState(0)
   const [selectedTone, setSelectedTone] = useState('formal')
@@ -67,6 +68,7 @@ export default function Editor() {
     if (data) {
       setArticle(data)
       setTagInput(data.tags?.join(', ') || '')
+      setBibleVerseInput(data.bible_verse || '')
     }
   }
 
@@ -285,6 +287,20 @@ export default function Editor() {
               placeholder="Add tags, separated by commas..."
               value={tagInput}
               onChange={e => handleTagsChange(e.target.value)}
+            />
+          </div>
+
+          {/* Bible Verse (optional) */}
+          <div className={styles.tagsRow}>
+            <span className={styles.tagIcon}>✝</span>
+            <input
+              className={styles.tagInput}
+              placeholder="Bible verse reference (optional) — e.g. John 3:16 or Psalm 23:1-3"
+              value={bibleVerseInput}
+              onChange={e => {
+                setBibleVerseInput(e.target.value)
+                handleChange('bible_verse', e.target.value)
+              }}
             />
           </div>
 
