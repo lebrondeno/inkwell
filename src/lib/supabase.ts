@@ -59,20 +59,8 @@ export async function upsertProfile(userId: string, full_name: string, bio: stri
 }
 
 // ── Views ────────────────────────────────────────
-export async function incrementView(slug: string): Promise<number | null> {
-  const { error } = await supabase.rpc('increment_view', { article_slug: slug })
-  if (error) {
-    console.error('increment_view RPC failed:', error.message)
-    return null
-  }
-
-  const { data } = await supabase
-    .from('articles')
-    .select('view_count')
-    .eq('slug', slug)
-    .single()
-
-  return data?.view_count ?? null
+export async function incrementView(slug: string) {
+  await supabase.rpc('increment_view', { article_slug: slug })
 }
 
 // ── Reactions ────────────────────────────────────
@@ -97,13 +85,11 @@ export async function getUserReaction(articleId: string, userId: string): Promis
 export async function toggleReaction(articleId: string, userId: string): Promise<boolean> {
   const existing = await getUserReaction(articleId, userId)
   if (existing) {
-    const { error } = await supabase.from('article_reactions').delete()
+    await supabase.from('article_reactions').delete()
       .eq('article_id', articleId).eq('user_id', userId)
-    if (error) throw new Error(error.message)
     return false
   } else {
-    const { error } = await supabase.from('article_reactions').insert({ article_id: articleId, user_id: userId })
-    if (error) throw new Error(error.message)
+    await supabase.from('article_reactions').insert({ article_id: articleId, user_id: userId })
     return true
   }
 }
@@ -142,13 +128,11 @@ export async function isBookmarked(articleId: string, userId: string): Promise<b
 export async function toggleBookmark(articleId: string, userId: string): Promise<boolean> {
   const bookmarked = await isBookmarked(articleId, userId)
   if (bookmarked) {
-    const { error } = await supabase.from('bookmarks').delete()
+    await supabase.from('bookmarks').delete()
       .eq('article_id', articleId).eq('user_id', userId)
-    if (error) throw new Error(error.message)
     return false
   } else {
-    const { error } = await supabase.from('bookmarks').insert({ article_id: articleId, user_id: userId })
-    if (error) throw new Error(error.message)
+    await supabase.from('bookmarks').insert({ article_id: articleId, user_id: userId })
     return true
   }
 }
@@ -244,28 +228,64 @@ export async function leaveCommunity(communityId: string, userId: string) {
 }
 
 export async function promoteToAdmin(communityId: string, userId: string) {
-  return supabase.from('community_members')
+  const { error } = await supabase.from('community_members')
     .update({ role: 'admin' })
-    .eq('community_id', communityId).eq('user_id', userId)
+    .eq('community_id', communityId)
+    .eq('user_id', userId)
+  return { error }
 }
 
 export async function getCommunityPosts(communityId: string, status = 'approved'): Promise<CommunityPost[]> {
-  const { data } = await supabase
+  // Step 1: get raw post rows
+  const { data: posts } = await supabase
     .from('community_posts')
-    .select('*, article:articles(*), submitter:writer_profiles!submitted_by(full_name, avatar_url)')
+    .select('id, community_id, article_id, submitted_by, status, reviewed_at, created_at')
     .eq('community_id', communityId)
     .eq('status', status)
     .order('created_at', { ascending: false })
-  return (data || []) as CommunityPost[]
+  if (!posts || posts.length === 0) return []
+
+  // Step 2: enrich articles and submitter profiles in parallel
+  const articleIds  = [...new Set(posts.map(p => p.article_id))]
+  const submitterIds = [...new Set(posts.map(p => p.submitted_by))]
+
+  const [{ data: articles }, { data: submitters }] = await Promise.all([
+    supabase.from('articles').select('*').in('id', articleIds),
+    supabase.from('writer_profiles').select('id, full_name, avatar_url').in('id', submitterIds),
+  ])
+
+  const articleMap   = Object.fromEntries((articles || []).map(a => [a.id, a]))
+  const submitterMap = Object.fromEntries((submitters || []).map(s => [s.id, s]))
+
+  return posts.map(p => ({
+    ...p,
+    article:   articleMap[p.article_id]   || null,
+    submitter: submitterMap[p.submitted_by] || null,
+  })) as CommunityPost[]
 }
 
 export async function getCommunityMembers(communityId: string) {
-  const { data } = await supabase
+  // Step 1: get raw membership rows
+  const { data: members } = await supabase
     .from('community_members')
-    .select('*, profile:writer_profiles(full_name, avatar_url)')
+    .select('community_id, user_id, role, joined_at')
     .eq('community_id', communityId)
     .order('role', { ascending: true })
-  return data || []
+  if (!members || members.length === 0) return []
+
+  // Step 2: fetch profiles separately to avoid ambiguous FK hint
+  const userIds = members.map(m => m.user_id)
+  const { data: profiles } = await supabase
+    .from('writer_profiles')
+    .select('id, full_name, avatar_url')
+    .in('id', userIds)
+
+  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+
+  return members.map(m => ({
+    ...m,
+    profile: profileMap[m.user_id] || null,
+  }))
 }
 
 export async function submitArticleToCommunity(communityId: string, articleId: string, userId: string, isAdmin: boolean) {
@@ -284,30 +304,51 @@ export async function reviewCommunityPost(postId: string, status: 'approved' | '
 }
 
 // ── Bible API ─────────────────────────────────────
+// Using free Bible API with CORS support
+const BIBLE_API_BASE = 'https://bible-api.com'
+
 export async function fetchBibleVerse(reference: string): Promise<BibleVerse | null> {
   try {
     const encoded = encodeURIComponent(reference)
-    // NIV is not available on bible-api.com, so try default first.
-    const primary = await fetch(`https://bible-api.com/${encoded}`)
-    if (primary.ok) return await primary.json()
-
-    // Fallback to a known-supported translation if default fails.
-    const fallback = await fetch(`https://bible-api.com/${encoded}?translation=kjv`)
-    if (fallback.ok) return await fallback.json()
-
+    const res = await fetch(`${BIBLE_API_BASE}/${encoded}`)
+    if (!res.ok) return null
+    
+    const data = await res.json()
+    
+    // Convert API response to our BibleVerse format
+    if (data.text && data.reference) {
+      return {
+        reference: data.reference,
+        verses: data.verses || [],
+        text: data.text,
+        translation_id: 'kjv',
+        translation_name: 'KJV'
+      }
+    }
+    
     return null
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
 export async function fetchVerseOfDay(): Promise<BibleVerse | null> {
-  // Curated daily verses — cycles by day of year
+  // Expanded list of daily verses for better variety
   const verses = [
     'John 3:16','Psalm 23:1','Proverbs 3:5-6','Isaiah 40:31','Philippians 4:13',
     'Romans 8:28','Jeremiah 29:11','Psalm 46:1','Matthew 6:33','Joshua 1:9',
     'Psalm 119:105','Romans 12:2','Galatians 5:22-23','2 Timothy 1:7','Hebrews 11:1',
     'James 1:2-3','1 Corinthians 13:4-5','Ephesians 2:8-9','Colossians 3:23','1 Peter 5:7',
+    'Matthew 11:28','Psalm 27:1','Isaiah 41:10','Romans 15:13','Philippians 4:6-7',
+    'Proverbs 16:3','Lamentations 3:22-23','Micah 6:8','Matthew 5:16','2 Corinthians 5:17',
+    'Galatians 2:20','Ephesians 3:20','Philippians 2:3-4','Colossians 1:17','1 Thessalonians 5:16-18'
   ]
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000)
-  const verse = verses[dayOfYear % verses.length]
-  return fetchBibleVerse(verse)
+  
+  // Use day of year for consistent daily verse selection
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
+  
+  const selectedVerse = verses[dayOfYear % verses.length]
+  return fetchBibleVerse(selectedVerse)
 }

@@ -186,3 +186,40 @@ CREATE TRIGGER community_creator_admin
 -- ═══════════════════════════════════════════════════════════
 -- Done. Your database is ready.
 -- ═══════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════
+-- PATCH: Fix RLS for promoteToAdmin + performance indexes
+-- Run this in Supabase SQL Editor after the schema above
+-- ═══════════════════════════════════════════════════════════
+
+-- Drop and recreate the UPDATE policy with WITH CHECK clause
+DROP POLICY IF EXISTS "Admins can update roles" ON public.community_members;
+
+CREATE POLICY "Admins can update roles"
+  ON public.community_members FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.community_members cm
+      WHERE cm.community_id = community_members.community_id
+        AND cm.user_id = auth.uid()
+        AND cm.role = 'admin'
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.community_members cm
+      WHERE cm.community_id = community_members.community_id
+        AND cm.user_id = auth.uid()
+        AND cm.role = 'admin'
+    )
+  );
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_community_members_community_id ON public.community_members(community_id);
+CREATE INDEX IF NOT EXISTS idx_community_members_user_id ON public.community_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_community_posts_community_status ON public.community_posts(community_id, status);
+CREATE INDEX IF NOT EXISTS idx_community_posts_article_id ON public.community_posts(article_id);
+
+-- ═══════════════════════════════════════════════════════════
+-- Patch complete.
+-- ═══════════════════════════════════════════════════════════
