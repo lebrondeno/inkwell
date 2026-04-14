@@ -87,9 +87,13 @@ export default function CommunityPage() {
 
   const handlePromote = async (memberId: string, memberName: string) => {
     if (!confirm(`Make ${memberName} an admin?`)) return
-    await promoteToAdmin(community!.id, memberId)
-    showToast(`${memberName} is now an admin`)
-    load()
+    const { error } = await promoteToAdmin(community!.id, memberId)
+    if (error) {
+      showToast(`Failed to promote: ${error.message}`, 'error')
+    } else {
+      showToast(`${memberName} is now an admin`)
+      load()
+    }
   }
 
   const openSubmit = async () => {
@@ -184,13 +188,13 @@ export default function CommunityPage() {
       {tab === 'feed' && (
         <div className={styles.feed}>
           <VerseOfDay />
-          {posts.length === 0 ? (
+          {posts.filter(p => p.article).length === 0 ? (
             <div className={styles.empty}>
               <span>📄</span>
               <h3>No articles yet</h3>
               <p>{role ? 'Submit your first article to this community.' : 'Join to submit articles.'}</p>
             </div>
-          ) : posts.map((post, i) => (
+          ) : posts.filter(p => p.article).map((post, i) => (
             <article key={post.id} className={styles.postCard} style={{ animationDelay: `${i * 0.05}s` }}>
               <div className={styles.postEmoji}>{post.article?.cover_emoji || '✦'}</div>
               <div className={styles.postBody}>
@@ -216,7 +220,13 @@ export default function CommunityPage() {
       {/* Members tab */}
       {tab === 'members' && (
         <div className={styles.membersList}>
-          {members.map(m => (
+          {members.length === 0 ? (
+            <div className={styles.empty}>
+              <span>👥</span>
+              <h3>No members yet</h3>
+              <p>Be the first to join this community.</p>
+            </div>
+          ) : members.map(m => (
             <div key={m.user_id} className={styles.memberRow}>
               <div className={styles.memberAvatar}>
                 {m.profile?.avatar_url

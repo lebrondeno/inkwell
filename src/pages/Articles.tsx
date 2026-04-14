@@ -21,82 +21,24 @@ export default function Articles() {
   const [filter, setFilter] = useState<ArticleStatus | 'all'>('all')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    if (!user?.id) {
-      setArticles([])
-      setLoading(false)
-      return
-    }
-    fetchArticles(user.id)
-  }, [user?.id])
+  useEffect(() => { fetchArticles() }, [])
 
-  const fetchArticles = async (userId: string) => {
-    setLoading(true)
-    const { data, error } = await supabase
+  const fetchArticles = async () => {
+    const { data } = await supabase
       .from('articles')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user?.id)
       .order('updated_at', { ascending: false })
-    if (error) {
-      showToast(`Could not load articles: ${error.message}`, 'error')
-      setArticles([])
-      setLoading(false)
-      return
-    }
     setArticles(data || [])
     setLoading(false)
   }
 
   const deleteArticle = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Archive this article? You can still recover it later.')) return
-    const { error } = await supabase
-      .from('articles')
-      .update({ status: 'archived', updated_at: new Date().toISOString() })
-      .eq('id', id)
-
-    if (error) {
-      showToast('Could not archive article', 'error')
-      return
-    }
-
-    setArticles(prev =>
-      prev.map(a => a.id === id ? { ...a, status: 'archived', updated_at: new Date().toISOString() } : a)
-    )
-    showToast('Article archived')
-  }
-
-  const restoreArticle = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    const { error } = await supabase
-      .from('articles')
-      .update({ status: 'draft', updated_at: new Date().toISOString() })
-      .eq('id', id)
-
-    if (error) {
-      showToast('Could not restore article', 'error')
-      return
-    }
-
-    setArticles(prev =>
-      prev.map(a => a.id === id ? { ...a, status: 'draft', updated_at: new Date().toISOString() } : a)
-    )
-    showToast('Article restored to drafts')
-  }
-
-  const deleteArticleForever = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    const confirmed = confirm('Permanently delete this archived article? This cannot be undone.')
-    if (!confirmed) return
-
-    const { error } = await supabase.from('articles').delete().eq('id', id)
-    if (error) {
-      showToast('Could not permanently delete article', 'error')
-      return
-    }
-
+    if (!confirm('Delete this article?')) return
+    await supabase.from('articles').delete().eq('id', id)
     setArticles(prev => prev.filter(a => a.id !== id))
-    showToast('Article permanently deleted')
+    showToast('Article deleted')
   }
 
   const filtered = articles.filter(a => {
@@ -177,7 +119,7 @@ export default function Articles() {
                 <button
                   className={styles.deleteBtn}
                   onClick={e => deleteArticle(article.id, e)}
-                  title="Archive"
+                  title="Delete"
                 >
                   ✕
                 </button>
@@ -223,26 +165,6 @@ export default function Articles() {
                   >
                     ↗ View live
                   </a>
-                )}
-                {article.status === 'archived' && (
-                  <div className={styles.trashActions} onClick={e => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className={styles.restoreBtn}
-                      onClick={e => restoreArticle(article.id, e)}
-                      title="Restore to drafts"
-                    >
-                      Restore
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.deleteForeverBtn}
-                      onClick={e => deleteArticleForever(article.id, e)}
-                      title="Delete forever"
-                    >
-                      Delete forever
-                    </button>
-                  </div>
                 )}
               </div>
             </div>

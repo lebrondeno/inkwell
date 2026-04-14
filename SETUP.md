@@ -164,8 +164,8 @@ vercel --prod
 ---
 
 ## Bible Translation
-Verse lookups use the default translation returned by [bible-api.com](https://bible-api.com),
-with a fallback to **KJV** if needed.
+Default translation is **NIV** (New International Version).
+Powered by [bible-api.com](https://bible-api.com) — free, no API key needed.
 
 ---
 

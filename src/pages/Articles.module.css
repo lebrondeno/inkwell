@@ -100,34 +100,6 @@
 }
 .viewLiveBtn:hover { background: rgba(92,224,138,0.15); transform: translateY(-1px); }
 
-.trashActions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-}
-.restoreBtn,
-.deleteForeverBtn {
-  border-radius: var(--radius);
-  padding: 4px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: 'DM Sans', sans-serif;
-}
-.restoreBtn {
-  color: var(--green);
-  background: rgba(92,224,138,0.08);
-  border: 1px solid rgba(92,224,138,0.25);
-}
-.restoreBtn:hover { background: rgba(92,224,138,0.15); }
-.deleteForeverBtn {
-  color: var(--red);
-  background: rgba(224,92,92,0.08);
-  border: 1px solid rgba(224,92,92,0.25);
-}
-.deleteForeverBtn:hover { background: rgba(224,92,92,0.15); }
-
 /* Empty */
 .empty {
   grid-column: 1 / -1; display: flex; flex-direction: column;
@@ -146,8 +118,6 @@
   .grid { grid-template-columns: 1fr; }
   .header { flex-direction: column; gap: 16px; }
   .search { max-width: 100%; }
-  .trashActions { width: 100%; margin-left: 0; }
-  .restoreBtn, .deleteForeverBtn { flex: 1; text-align: center; }
 }
 @media (max-width: 480px) {
   .page { padding: 16px 14px; }

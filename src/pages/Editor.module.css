@@ -45,26 +45,6 @@
 .statusSelect:focus { border: none; box-shadow: none; }
 .wordCount { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
 .saveIndicator { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; letter-spacing: 0.04em; }
-.fontGroup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.fontLabel {
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.03em;
-}
-.fontSelect {
-  width: auto;
-  min-width: 116px;
-  padding: 5px 8px;
-  font-size: 12px;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
 
 /* ── Main layout ── */
 .main { display: flex; flex: 1; overflow: hidden; }
@@ -128,34 +108,7 @@
 .tagInput:focus { box-shadow: none; border: none; color: var(--text-secondary); }
 .divider { height: 1px; background: var(--border); margin-bottom: 36px; }
 
-.formatBar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 0 14px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-card);
-}
-.formatBtn {
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  border-radius: var(--radius);
-  padding: 5px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.formatBtn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-glow);
-}
-
-/* Content */
+/* Content Input */
 .contentInput {
   flex: 1; background: none; border: none;
   font-family: 'Playfair Display', serif;
@@ -262,14 +215,10 @@
   }
   .toolbarCenter { display: none; }
   .toolbarLeft, .toolbarRight { min-width: auto; gap: 4px; }
-  .fontLabel { display: none; }
-  .fontSelect { min-width: 88px; font-size: 11px; padding: 4px 6px; }
 
   .editorCol { padding: 24px 18px 32px; }
   .titleInput { font-size: 24px; }
   .contentInput { font-size: 16px; min-height: 300px; }
-  .formatBar { gap: 4px; padding: 6px; }
-  .formatBtn { font-size: 10px; padding: 4px 7px; }
 
   /* AI panel slides up from bottom on mobile */
   .aiPanel {

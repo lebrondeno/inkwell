@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap');
 
 /* ── Dark theme (default) ── */
 :root {
@@ -31,9 +31,9 @@
   --accent:       #8b6030;
   --accent-dim:   #a87840;
   --accent-glow:  rgba(139,96,48,0.10);
-  --text-primary: #1f1b16;
-  --text-secondary:#3f3831;
-  --text-muted:   #6d645a;
+  --text-primary: #2c2a26;
+  --text-secondary:#5a5650;
+  --text-muted:   #908880;
   --red:          #b84040;
   --green:        #3a8a50;
   --radius:       4px;
@@ -52,16 +52,8 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
   overflow-x: hidden;
   transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Sharper ink in light mode */
-:root[data-theme="light"] body {
-  -webkit-font-smoothing: auto;
-  font-weight: 450;
 }
 
 /* Ambient gradient — dark */
