@@ -29,12 +29,18 @@ export default function Dashboard() {
 
   const fetchMyArticles = async (userId: string) => {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('articles')
       .select('*')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(5)
+    if (error) {
+      console.error('Failed loading dashboard articles:', error.message)
+      setMyArticles([])
+      setLoading(false)
+      return
+    }
     setMyArticles(data || [])
     setLoading(false)
   }
@@ -42,13 +48,19 @@ export default function Dashboard() {
   const fetchCommunity = async (userId: string) => {
     setCommunityLoading(true)
     // Fetch latest published articles from ALL writers (not just current user)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('articles')
       .select('*')
       .eq('status', 'published')
       .neq('user_id', userId)          // exclude own articles
       .order('created_at', { ascending: false })
       .limit(4)
+    if (error) {
+      console.error('Failed loading community feed:', error.message)
+      setCommunity([])
+      setCommunityLoading(false)
+      return
+    }
     setCommunity(data || [])
     setCommunityLoading(false)
   }
