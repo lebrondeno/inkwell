@@ -68,6 +68,7 @@ create table if not exists public.writer_profiles (
   id         uuid        primary key references auth.users(id) on delete cascade,
   full_name  text        default '',
   bio        text        default '',
+  avatar_url text        default '',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -92,15 +93,17 @@ create policy "Users can upsert own profile"
 create or replace function handle_new_user()
 returns trigger as $$
 begin
-  insert into public.writer_profiles (id, full_name, bio)
+  insert into public.writer_profiles (id, full_name, bio, avatar_url)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
-    coalesce(new.raw_user_meta_data->>'bio', '')
+    coalesce(new.raw_user_meta_data->>'bio', ''),
+    coalesce(new.raw_user_meta_data->>'avatar_url', '')
   )
   on conflict (id) do update
     set full_name = excluded.full_name,
         bio       = excluded.bio,
+        avatar_url = excluded.avatar_url,
         updated_at = now();
   return new;
 end;
@@ -175,6 +178,12 @@ create policy "Users can insert own comments"
 create policy "Users can delete own comments"
   on public.article_comments for delete
   using (auth.uid() = user_id);
+
+-- Auto-update updated_at for comments
+drop trigger if exists article_comments_updated_at on public.article_comments;
+create trigger article_comments_updated_at
+  before update on public.article_comments
+  for each row execute function update_updated_at();
 
 -- ── Bookmarks ───────────────────────────────────────
 create table if not exists public.bookmarks (

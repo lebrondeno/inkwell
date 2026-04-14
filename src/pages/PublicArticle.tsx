@@ -25,6 +25,7 @@ export default function PublicArticle() {
   // Author
   const [authorName,    setAuthorName]    = useState('Anonymous')
   const [authorBio,     setAuthorBio]     = useState('')
+  const [authorAvatar,  setAuthorAvatar]  = useState('')
   const [authorInitials,setAuthorInitials]= useState('?')
 
   // Reactions
@@ -64,6 +65,7 @@ export default function PublicArticle() {
         const name = profile.full_name
         setAuthorName(name)
         setAuthorBio(profile.bio || '')
+        setAuthorAvatar(profile.avatar_url || '')
         setAuthorInitials(name.split(' ').filter(Boolean).map((n:string)=>n[0]).join('').toUpperCase().slice(0,2) || '✦')
       }
 
@@ -120,12 +122,24 @@ export default function PublicArticle() {
     if (commentText.trim().length < 2) { setCommentError('Comment too short'); return }
     setSubmitting(true)
     setCommentError('')
-    const { error } = await addComment(article.id, user.id, commentText)
-    if (error) { setCommentError('Failed to post. Try again.'); setSubmitting(false); return }
+    
+    console.log('Attempting to save comment:', { articleId: article.id, userId: user.id, commentText })
+    
+    const result = await addComment(article.id, user.id, commentText)
+    console.log('Comment save result:', result)
+    
+    if (result.error) { 
+      console.error('Comment error:', result.error)
+      setCommentError(`Failed to post: ${result.error}`); 
+      setSubmitting(false); 
+      return 
+    }
+    
     setCommentText('')
     const fresh = await getComments(article.id)
     setComments(fresh)
     setSubmitting(false)
+    showToast('Comment posted!', 'success')
   }
 
   const handleDeleteComment = async (id: string) => {
@@ -200,7 +214,11 @@ export default function PublicArticle() {
 
           {/* ── Author + meta ── */}
           <Link to={`/writer/${article.user_id}`} className={styles.authorRow}>
-            <div className={styles.authorAvatar}>{authorInitials}</div>
+            {authorAvatar ? (
+              <img src={authorAvatar} alt={authorName} className={styles.authorAvatarImage} />
+            ) : (
+              <div className={styles.authorAvatar}>{authorInitials}</div>
+            )}
             <div className={styles.authorMeta}>
               <span className={styles.authorName}>{authorName}</span>
               <span className={styles.authorSub}>
@@ -277,7 +295,11 @@ export default function PublicArticle() {
 
           {/* ── Author card ── */}
           <Link to={`/writer/${article.user_id}`} className={styles.authorCard}>
-            <div className={styles.authorCardAvatar}>{authorInitials}</div>
+            {authorAvatar ? (
+              <img src={authorAvatar} alt={authorName} className={styles.authorCardAvatarImage} />
+            ) : (
+              <div className={styles.authorCardAvatar}>{authorInitials}</div>
+            )}
             <div className={styles.authorCardInfo}>
               <p className={styles.authorCardName}>{authorName}</p>
               <p className={styles.authorCardBio}>{authorBio || 'Inkwell writer'}</p>
@@ -329,11 +351,16 @@ export default function PublicArticle() {
               <div className={styles.commentList}>
                 {comments.map(comment => {
                   const cname = (comment.profile as any)?.full_name || 'Writer'
+                  const cavatar = (comment.profile as any)?.avatar_url || ''
                   const cinit = cname.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2)
                   const isOwn = user?.id === comment.user_id
                   return (
                     <div key={comment.id} className={styles.commentItem}>
-                      <div className={styles.commentAvatar}>{cinit}</div>
+                      {cavatar ? (
+                        <img src={cavatar} alt={cname} className={styles.commentAvatarImage} />
+                      ) : (
+                        <div className={styles.commentAvatar}>{cinit}</div>
+                      )}
                       <div className={styles.commentBody}>
                         <div className={styles.commentHeader}>
                           <span className={styles.commentAuthor}>{cname}</span>
