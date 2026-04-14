@@ -11,6 +11,7 @@ import { useApp } from '../context/AppContext'
 import type { Article, Comment } from '../lib/supabase'
 import styles from './PublicArticle.module.css'
 import BibleVerseBlock from '../components/BibleVerseBlock'
+import { renderArticleContent } from '../lib/articleFormat'
 
 export default function PublicArticle() {
   const { slug } = useParams<{ slug: string }>()
@@ -228,11 +229,10 @@ export default function PublicArticle() {
 
           {/* ── Body ── */}
           <div className={styles.body}>
-            {article.content?.split('\n').map((para, idx) =>
-              para.trim()
-                ? <p key={idx} className={styles.paragraph}>{para}</p>
-                : <div key={idx} style={{ height: '12px' }} />
-            )}
+            <div
+              className={styles.richContent}
+              dangerouslySetInnerHTML={{ __html: renderArticleContent(article.content || '') }}
+            />
           </div>
 
           {/* ── Reactions bar ── */}
