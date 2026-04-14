@@ -1,0 +1,94 @@
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.5s ease;
+}
+
+.card::before {
+  content: '✝';
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 80px;
+  opacity: 0.03;
+  color: var(--accent);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.icon {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.translation {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: 100px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.text {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.8;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.reference {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.skeleton {
+  height: 56px;
+  background: linear-gradient(90deg, var(--bg-hover) 25%, var(--border) 50%, var(--bg-hover) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+
+.skeletonSm {
+  height: 16px;
+  width: 120px;
+  background: linear-gradient(90deg, var(--bg-hover) 25%, var(--border) 50%, var(--bg-hover) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+
+@media (max-width: 768px) {
+  .card { padding: 18px 20px; }
+  .text { font-size: 16px; }
+}

@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { icon: '✦', label: 'Articles', path: '/app/articles' },
   { icon: '◉', label: 'Write',    path: '/app/write' },
   { icon: '⊡', label: 'Stats',    path: '/app/analytics' },
+  { icon: '🏛️', label: 'Groups',   path: '/app/communities' },
   { icon: '◎', label: 'Profile',  path: '/app/profile' },
 ]
 
