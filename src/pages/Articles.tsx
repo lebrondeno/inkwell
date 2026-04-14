@@ -32,11 +32,17 @@ export default function Articles() {
 
   const fetchArticles = async (userId: string) => {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('articles')
       .select('*')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
+    if (error) {
+      showToast(`Could not load articles: ${error.message}`, 'error')
+      setArticles([])
+      setLoading(false)
+      return
+    }
     setArticles(data || [])
     setLoading(false)
   }

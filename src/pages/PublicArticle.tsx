@@ -27,6 +27,7 @@ export default function PublicArticle() {
   const [authorName,    setAuthorName]    = useState('Anonymous')
   const [authorBio,     setAuthorBio]     = useState('')
   const [authorInitials,setAuthorInitials]= useState('?')
+  const [authorAvatar,  setAuthorAvatar]  = useState('')
 
   // Reactions
   const [likeCount,     setLikeCount]     = useState(0)
@@ -57,7 +58,12 @@ export default function PublicArticle() {
       if (err || !data) { setError('not_found'); setLoading(false); return }
 
       setArticle(data)
-      if (slug) incrementView(slug)
+      if (slug) {
+        const nextViews = await incrementView(slug)
+        if (typeof nextViews === 'number') {
+          setArticle(prev => (prev ? { ...prev, view_count: nextViews } : prev))
+        }
+      }
 
       // Author
       const profile = await getWriterProfile(data.user_id)
@@ -67,6 +73,7 @@ export default function PublicArticle() {
         setAuthorBio(profile.bio || '')
         setAuthorInitials(name.split(' ').filter(Boolean).map((n:string)=>n[0]).join('').toUpperCase().slice(0,2) || '✦')
       }
+      if (profile?.avatar_url) setAuthorAvatar(profile.avatar_url)
 
       // Reactions
       const [count, comments] = await Promise.all([
@@ -99,9 +106,14 @@ export default function PublicArticle() {
     if (!user) { showToast('Sign in to like articles', 'error'); return }
     if (!article || liking) return
     setLiking(true)
-    const nowLiked = await toggleReaction(article.id, user.id)
-    setLiked(nowLiked)
-    setLikeCount(prev => nowLiked ? prev + 1 : Math.max(0, prev - 1))
+    try {
+      const nowLiked = await toggleReaction(article.id, user.id)
+      setLiked(nowLiked)
+      setLikeCount(prev => nowLiked ? prev + 1 : Math.max(0, prev - 1))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not update like'
+      showToast(msg, 'error')
+    }
     setLiking(false)
   }
 
@@ -109,9 +121,14 @@ export default function PublicArticle() {
     if (!user) { showToast('Sign in to bookmark articles', 'error'); return }
     if (!article || bookmarking) return
     setBookmarking(true)
-    const now = await toggleBookmark(article.id, user.id)
-    setBookmarked(now)
-    showToast(now ? '🔖 Bookmarked!' : 'Bookmark removed')
+    try {
+      const now = await toggleBookmark(article.id, user.id)
+      setBookmarked(now)
+      showToast(now ? '🔖 Bookmarked!' : 'Bookmark removed')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not update bookmark'
+      showToast(msg, 'error')
+    }
     setBookmarking(false)
   }
 
@@ -201,7 +218,9 @@ export default function PublicArticle() {
 
           {/* ── Author + meta ── */}
           <Link to={`/writer/${article.user_id}`} className={styles.authorRow}>
-            <div className={styles.authorAvatar}>{authorInitials}</div>
+            <div className={styles.authorAvatar}>
+              {authorAvatar ? <img src={authorAvatar} alt={authorName} className={styles.authorAvatarImg} /> : authorInitials}
+            </div>
             <div className={styles.authorMeta}>
               <span className={styles.authorName}>{authorName}</span>
               <span className={styles.authorSub}>
@@ -277,7 +296,9 @@ export default function PublicArticle() {
 
           {/* ── Author card ── */}
           <Link to={`/writer/${article.user_id}`} className={styles.authorCard}>
-            <div className={styles.authorCardAvatar}>{authorInitials}</div>
+            <div className={styles.authorCardAvatar}>
+              {authorAvatar ? <img src={authorAvatar} alt={authorName} className={styles.authorCardAvatarImg} /> : authorInitials}
+            </div>
             <div className={styles.authorCardInfo}>
               <p className={styles.authorCardName}>{authorName}</p>
               <p className={styles.authorCardBio}>{authorBio || 'Inkwell writer'}</p>

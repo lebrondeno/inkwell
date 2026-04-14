@@ -59,8 +59,20 @@ export async function upsertProfile(userId: string, full_name: string, bio: stri
 }
 
 // ── Views ────────────────────────────────────────
-export async function incrementView(slug: string) {
-  await supabase.rpc('increment_view', { article_slug: slug })
+export async function incrementView(slug: string): Promise<number | null> {
+  const { error } = await supabase.rpc('increment_view', { article_slug: slug })
+  if (error) {
+    console.error('increment_view RPC failed:', error.message)
+    return null
+  }
+
+  const { data } = await supabase
+    .from('articles')
+    .select('view_count')
+    .eq('slug', slug)
+    .single()
+
+  return data?.view_count ?? null
 }
 
 // ── Reactions ────────────────────────────────────
@@ -85,11 +97,13 @@ export async function getUserReaction(articleId: string, userId: string): Promis
 export async function toggleReaction(articleId: string, userId: string): Promise<boolean> {
   const existing = await getUserReaction(articleId, userId)
   if (existing) {
-    await supabase.from('article_reactions').delete()
+    const { error } = await supabase.from('article_reactions').delete()
       .eq('article_id', articleId).eq('user_id', userId)
+    if (error) throw new Error(error.message)
     return false
   } else {
-    await supabase.from('article_reactions').insert({ article_id: articleId, user_id: userId })
+    const { error } = await supabase.from('article_reactions').insert({ article_id: articleId, user_id: userId })
+    if (error) throw new Error(error.message)
     return true
   }
 }
@@ -128,11 +142,13 @@ export async function isBookmarked(articleId: string, userId: string): Promise<b
 export async function toggleBookmark(articleId: string, userId: string): Promise<boolean> {
   const bookmarked = await isBookmarked(articleId, userId)
   if (bookmarked) {
-    await supabase.from('bookmarks').delete()
+    const { error } = await supabase.from('bookmarks').delete()
       .eq('article_id', articleId).eq('user_id', userId)
+    if (error) throw new Error(error.message)
     return false
   } else {
-    await supabase.from('bookmarks').insert({ article_id: articleId, user_id: userId })
+    const { error } = await supabase.from('bookmarks').insert({ article_id: articleId, user_id: userId })
+    if (error) throw new Error(error.message)
     return true
   }
 }

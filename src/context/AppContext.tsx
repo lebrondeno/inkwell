@@ -28,11 +28,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const ensureValidSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      // Handle stale sessions (common when token expired while app was closed).
+      if (session?.expires_at && session.expires_at * 1000 <= Date.now()) {
+        const { data, error } = await supabase.auth.refreshSession()
+        if (error || !data.session) {
+          await supabase.auth.signOut()
+          setSession(null)
+          setUser(null)
+          setToast({ message: 'Session expired. Please sign in again.', type: 'error' })
+          setLoading(false)
+          return
+        }
+        setSession(data.session)
+        setUser(data.session.user)
+        setLoading(false)
+        return
+      }
+
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
-    })
+    }
+
+    ensureValidSession()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)

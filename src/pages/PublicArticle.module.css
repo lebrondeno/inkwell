@@ -72,7 +72,9 @@
   background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.35);
   color: var(--accent); font-size: 14px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
+.authorAvatarImg { width: 100%; height: 100%; object-fit: cover; display: block; }
 .authorMeta { flex: 1; min-width: 0; }
 .authorName { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .authorSub  { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
@@ -190,6 +192,8 @@
 .authorCard { display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); text-decoration: none; transition: all 0.25s; }
 .authorCard:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 28px var(--accent-glow); }
 .authorCardAvatar { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.35); color: var(--accent); font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.authorCardAvatar { overflow: hidden; }
+.authorCardAvatarImg { width: 100%; height: 100%; object-fit: cover; display: block; }
 .authorCardInfo { flex: 1; min-width: 0; }
 .authorCardName { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
 .authorCardBio { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

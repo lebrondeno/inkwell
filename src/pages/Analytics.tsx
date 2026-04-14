@@ -23,7 +23,13 @@ export default function Analytics() {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Failed loading analytics articles:', error.message)
+          setArticles([])
+          setLoading(false)
+          return
+        }
         setArticles(data || [])
         setLoading(false)
       })

@@ -12,6 +12,7 @@ export default function PublicProfile() {
   const { theme, toggleTheme } = useApp()
   const [fullName, setFullName] = useState('Writer')
   const [bio, setBio] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -23,6 +24,7 @@ export default function PublicProfile() {
       const profile = await getWriterProfile(uid)
       if (profile?.full_name) setFullName(profile.full_name)
       if (profile?.bio) setBio(profile.bio)
+      if (profile?.avatar_url) setAvatarUrl(profile.avatar_url)
 
       // Load published articles (RLS allows public reads of published)
       const { data, error } = await supabase
@@ -68,7 +70,9 @@ export default function PublicProfile() {
       <div className={styles.container}>
         {/* ── Profile hero ── */}
         <div className={styles.profileHero}>
-          <div className={styles.avatar}>{initials}</div>
+          <div className={styles.avatar}>
+            {avatarUrl ? <img src={avatarUrl} alt={fullName} className={styles.avatarImg} /> : initials}
+          </div>
           <div className={styles.profileInfo}>
             <h1 className={styles.name}>{fullName}</h1>
             {bio && <p className={styles.bio}>{bio}</p>}
