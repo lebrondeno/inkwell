@@ -11,16 +11,23 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!user?.id) {
+      setArticles([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     supabase
       .from('articles')
       .select('*')
-      .eq('user_id', user?.id)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
         setArticles(data || [])
         setLoading(false)
       })
-  }, [])
+  }, [user?.id])
 
   const totalWords     = articles.reduce((s, a) => s + (a.word_count || 0), 0)
   const published      = articles.filter(a => a.status === 'published')
