@@ -68,11 +68,18 @@
 }
 .authorRow:hover { background: var(--bg-hover); }
 .authorAvatar {
-  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
-  background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.35);
-  color: var(--accent); font-size: 14px; font-weight: 700;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--accent); color: white;
   display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 14px; flex-shrink: 0;
 }
+
+.authorAvatarImage {
+  width: 48px; height: 48px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  border: 2px solid var(--accent-glow);
+}
+
 .authorMeta { flex: 1; min-width: 0; }
 .authorName { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .authorSub  { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
@@ -137,7 +144,19 @@
 /* Author card */
 .authorCard { display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); text-decoration: none; transition: all 0.25s; }
 .authorCard:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 28px var(--accent-glow); }
-.authorCardAvatar { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.35); color: var(--accent); font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.authorCardAvatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--accent); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 18px; flex-shrink: 0;
+}
+
+.authorCardAvatarImage {
+  width: 64px; height: 64px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  border: 2px solid var(--accent-glow);
+}
+
 .authorCardInfo { flex: 1; min-width: 0; }
 .authorCardName { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
 .authorCardBio { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -171,6 +190,8 @@
 .commentList { display: flex; flex-direction: column; gap: 16px; }
 .commentItem { display: flex; gap: 12px; }
 .commentAvatar { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.3); color: var(--accent); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+
+.commentAvatarImage { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; object-fit: cover; border: 2px solid var(--accent-glow); margin-top: 2px; }
 .commentBody { flex: 1; min-width: 0; }
 .commentHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .commentAuthor { font-size: 13px; font-weight: 600; color: var(--text-primary); }

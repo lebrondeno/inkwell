@@ -98,16 +98,30 @@ export async function toggleReaction(articleId: string, userId: string): Promise
 export async function getComments(articleId: string): Promise<Comment[]> {
   const { data } = await supabase
     .from('article_comments')
-    .select('*, profile:writer_profiles(full_name)')
+    .select('*, profile:writer_profiles(full_name, avatar_url)')
     .eq('article_id', articleId)
     .order('created_at', { ascending: true })
   return (data || []) as Comment[]
 }
 
 export async function addComment(articleId: string, userId: string, body: string) {
-  return supabase.from('article_comments').insert({
-    article_id: articleId, user_id: userId, body: body.trim()
-  })
+  try {
+    const { data, error } = await supabase.from('article_comments').insert({
+      article_id: articleId, 
+      user_id: userId, 
+      body: body.trim()
+    }).select().single()
+    
+    if (error) {
+      console.error('Comment insert error:', error)
+      return { error: error.message }
+    }
+    
+    return { data, error: null }
+  } catch (err) {
+    console.error('Comment insert exception:', err)
+    return { error: 'Failed to save comment' }
+  }
 }
 
 export async function deleteComment(commentId: string) {
