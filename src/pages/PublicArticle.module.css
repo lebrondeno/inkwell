@@ -222,3 +222,102 @@
   .reactBar { flex-direction: column; align-items: flex-start; }
   .bookmarkBarBtn { margin-left: 0; width: 100%; justify-content: center; }
 }
+
+
+/* ── Rich content (HTML from RichEditor / Tiptap) ── */
+.richContent {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  line-height: 1.85;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.richContent p {
+  margin: 0 0 1.2em;
+}
+
+.richContent h1 {
+  font-size: 2em;
+  font-weight: 800;
+  margin: 1.6em 0 0.5em;
+  line-height: 1.2;
+  font-family: 'Playfair Display', serif;
+  color: var(--text-primary);
+}
+
+.richContent h2 {
+  font-size: 1.55em;
+  font-weight: 700;
+  margin: 1.4em 0 0.4em;
+  line-height: 1.25;
+  font-family: 'Playfair Display', serif;
+  color: var(--text-primary);
+}
+
+.richContent h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 1.2em 0 0.3em;
+  font-family: 'Playfair Display', serif;
+  color: var(--text-primary);
+}
+
+.richContent blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1.2em;
+  margin: 1.6em 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.richContent ul {
+  padding-left: 1.6em;
+  margin-bottom: 1.2em;
+  list-style: disc;
+}
+
+.richContent ol {
+  padding-left: 1.6em;
+  margin-bottom: 1.2em;
+  list-style: decimal;
+}
+
+.richContent li {
+  margin-bottom: 0.35em;
+}
+
+.richContent code {
+  background: var(--bg-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 0.85em;
+  color: var(--accent);
+}
+
+.richContent strong { font-weight: 700; }
+.richContent em     { font-style: italic; }
+.richContent u      { text-decoration: underline; }
+.richContent s      { text-decoration: line-through; opacity: 0.7; }
+
+.richContent a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.richContent a:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+  .richContent { font-size: 15px; }
+  .richContent h1 { font-size: 1.6em; }
+  .richContent h2 { font-size: 1.35em; }
+  .richContent h3 { font-size: 1.15em; }
+}
+
+@media (max-width: 480px) {
+  .richContent { font-size: 14px; }
+}
