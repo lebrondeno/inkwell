@@ -245,13 +245,17 @@ export default function PublicArticle() {
           )}
 
           {/* ── Body ── */}
-          <div className={styles.body}>
-            {article.content?.split('\n').map((para, idx) =>
-              para.trim()
-                ? <p key={idx} className={styles.paragraph}>{para}</p>
-                : <div key={idx} style={{ height: '12px' }} />
-            )}
-          </div>
+          <div
+            className={`${styles.body} ${styles.richContent}`}
+            dangerouslySetInnerHTML={{
+              __html: article.content?.trimStart().startsWith('<')
+                ? article.content
+                : (article.content || '')
+                    .split('\n')
+                    .map(line => line.trim() ? `<p>${line}</p>` : '<br/>')
+                    .join('')
+            }}
+          />
 
           {/* ── Reactions bar ── */}
           <div className={styles.reactBar}>
