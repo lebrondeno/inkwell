@@ -24,6 +24,7 @@ export default function PublicArticle() {
 
   // Author
   const [authorName,    setAuthorName]    = useState('Anonymous')
+  const [authorBio,     setAuthorBio]     = useState('')
   const [authorAvatar,  setAuthorAvatar]  = useState('')
   const [authorInitials,setAuthorInitials]= useState('?')
 
@@ -63,6 +64,7 @@ export default function PublicArticle() {
       if (profile?.full_name) {
         const name = profile.full_name
         setAuthorName(name)
+        setAuthorBio(profile.bio || '')
         setAuthorAvatar(profile.avatar_url || '')
         setAuthorInitials(name.split(' ').filter(Boolean).map((n:string)=>n[0]).join('').toUpperCase().slice(0,2) || '✦')
       }
@@ -134,12 +136,7 @@ export default function PublicArticle() {
     }
     
     setCommentText('')
-    
-    // Small delay to ensure database is updated
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
     const fresh = await getComments(article.id)
-    console.log('Refreshed comments count:', fresh.length)
     setComments(fresh)
     setSubmitting(false)
     showToast('Comment posted!', 'success')
@@ -248,16 +245,17 @@ export default function PublicArticle() {
           )}
 
           {/* ── Body ── */}
-          <div className={styles.body}>
-            {article.content ? (
-              <div
-                className={styles.richContent}
-                dangerouslySetInnerHTML={{ __html: article.content }}
-              />
-            ) : (
-              <p className={styles.paragraph}>No content yet.</p>
-            )}
-          </div>
+          <div
+            className={`${styles.body} ${styles.richContent}`}
+            dangerouslySetInnerHTML={{
+              __html: article.content?.trimStart().startsWith('<')
+                ? article.content
+                : (article.content || '')
+                    .split('\n')
+                    .map(line => line.trim() ? `<p>${line}</p>` : '<br/>')
+                    .join('')
+            }}
+          />
 
           {/* ── Reactions bar ── */}
           <div className={styles.reactBar}>
@@ -287,6 +285,31 @@ export default function PublicArticle() {
               {bookmarked ? '🔖 Saved' : '🏷️ Save'}
             </button>
           </div>
+
+          {/* ── Share card ── */}
+          <div className={styles.shareCard}>
+            <div className={styles.shareCardTop}>
+              <span className={styles.shareCardTitle}>📋 Share this article</span>
+              <button className={`${styles.copyBtn} ${copied ? styles.copyBtnCopied : ''}`} onClick={copyLink}>
+                {copied ? '✓ Copied!' : 'Copy Link'}
+              </button>
+            </div>
+            <input readOnly value={window.location.href} className={styles.linkInput} onFocus={e => { e.target.select(); copyLink() }} />
+          </div>
+
+          {/* ── Author card ── */}
+          <Link to={`/writer/${article.user_id}`} className={styles.authorCard}>
+            {authorAvatar ? (
+              <img src={authorAvatar} alt={authorName} className={styles.authorCardAvatarImage} />
+            ) : (
+              <div className={styles.authorCardAvatar}>{authorInitials}</div>
+            )}
+            <div className={styles.authorCardInfo}>
+              <p className={styles.authorCardName}>{authorName}</p>
+              <p className={styles.authorCardBio}>{authorBio || 'Inkwell writer'}</p>
+            </div>
+            <span className={styles.authorCardArrow}>→</span>
+          </Link>
 
           {/* ── Comments ── */}
           <div className={styles.commentsSection}>
@@ -331,8 +354,8 @@ export default function PublicArticle() {
             {comments.length > 0 && (
               <div className={styles.commentList}>
                 {comments.map(comment => {
-                  const cname = comment.profile?.full_name || 'Writer'
-                  const cavatar = comment.profile?.avatar_url || ''
+                  const cname = (comment.profile as any)?.full_name || 'Writer'
+                  const cavatar = (comment.profile as any)?.avatar_url || ''
                   const cinit = cname.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2)
                   const isOwn = user?.id === comment.user_id
                   return (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, getCommunities } from '../../lib/supabase'
 import type { Community } from '../../lib/supabase'
@@ -19,24 +19,8 @@ export default function Communities() {
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', emoji: '🏛️', category: 'General' })
-  const gridRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => { load() }, [])
-
-  const filtered = communities.filter(c => {
-    const matchCat = filter === 'All' || c.category === filter
-    const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.description?.toLowerCase().includes(search.toLowerCase())
-    return matchCat && matchSearch
-  })
-
-  useEffect(() => {
-    if (loading || !gridRef.current) return
-    const cards = Array.from(gridRef.current.querySelectorAll<HTMLElement>(`.${styles.card}`))
-    cards.forEach(el => el.classList.remove(styles.visible))
-    cards.forEach((el, i) => {
-      setTimeout(() => { el.classList.add(styles.visible) }, i * 75)
-    })
-  }, [loading, filtered.length, filter, search])
 
   const load = async () => {
     const data = await getCommunities()
@@ -67,6 +51,12 @@ export default function Communities() {
     load()
     setCreating(false)
   }
+
+  const filtered = communities.filter(c => {
+    const matchCat = filter === 'All' || c.category === filter
+    const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.description?.toLowerCase().includes(search.toLowerCase())
+    return matchCat && matchSearch
+  })
 
   return (
     <>
@@ -111,9 +101,9 @@ export default function Communities() {
           {user && <button className="btn btn-primary" onClick={() => setShowCreate(true)}>Create Community</button>}
         </div>
       ) : (
-        <div className={styles.grid} ref={gridRef}>
-          {filtered.map((c) => (
-            <div key={c.id} className={styles.card} onClick={() => navigate(`/c/${c.slug}`)}>
+        <div className={styles.grid}>
+          {filtered.map((c, i) => (
+            <div key={c.id} className={styles.card} onClick={() => navigate(`/c/${c.slug}`)} style={{ animationDelay: `${i * 0.05}s` }}>
               <div className={styles.cardTop}>
                 <span className={styles.emoji}>{c.emoji}</span>
                 <span className={styles.category}>{c.category}</span>
