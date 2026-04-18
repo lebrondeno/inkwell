@@ -60,7 +60,7 @@ export default function CommunityPage() {
 
     if (user) {
       const r = await getUserCommunityRole(c.id, user.id)
-      setRole(r)
+      setRole(r as "member" | "admin" | null)
       if (r === 'admin') {
         const pendingPosts = await getCommunityPosts(c.id, 'pending')
         setPending(pendingPosts)

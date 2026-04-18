@@ -112,7 +112,7 @@ export default function Communities() {
         </div>
       ) : (
         <div className={styles.grid} ref={gridRef}>
-          {filtered.map((c, i) => (
+          {filtered.map((c) => (
             <div key={c.id} className={styles.card} onClick={() => navigate(`/c/${c.slug}`)}>
               <div className={styles.cardTop}>
                 <span className={styles.emoji}>{c.emoji}</span>

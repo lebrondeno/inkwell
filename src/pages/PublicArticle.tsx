@@ -24,7 +24,6 @@ export default function PublicArticle() {
 
   // Author
   const [authorName,    setAuthorName]    = useState('Anonymous')
-  const [authorBio,     setAuthorBio]     = useState('')
   const [authorAvatar,  setAuthorAvatar]  = useState('')
   const [authorInitials,setAuthorInitials]= useState('?')
 
@@ -64,7 +63,6 @@ export default function PublicArticle() {
       if (profile?.full_name) {
         const name = profile.full_name
         setAuthorName(name)
-        setAuthorBio(profile.bio || '')
         setAuthorAvatar(profile.avatar_url || '')
         setAuthorInitials(name.split(' ').filter(Boolean).map((n:string)=>n[0]).join('').toUpperCase().slice(0,2) || '✦')
       }

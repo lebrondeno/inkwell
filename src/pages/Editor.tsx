@@ -19,7 +19,6 @@ export default function Editor() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, showToast } = useApp()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [article, setArticle] = useState<Partial<Article>>({
@@ -309,7 +308,7 @@ export default function Editor() {
 
           {/* Content - Rich Text Editor */}
           <RichEditor
-            content={article.content}
+            content={article.content || ''}
             onChange={content => handleChange('content', content)}
             placeholder="Begin writing. Your thoughts deserve a beautiful home..."
           />
