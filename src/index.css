@@ -1,44 +1,41 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap');
 
-/* ── Dark theme — Nebula ── */
+/* ── Dark theme (default) ── */
 :root {
-  --bg-primary:   #0a0518;
-  --bg-secondary: #0f0a22;
-  --bg-card:      #130d28;
-  --bg-hover:     #1c1438;
-  --border:       #2a1f4a;
-  --border-light: #3d2d6a;
-  --accent:       #c084fc;
-  --accent-dim:   #a855f7;
-  --accent-glow:  rgba(192,132,252,0.15);
-  --accent-purple: #c084fc;
-  --accent-teal:   #22d3ee;
-  --accent-purple-glow: rgba(192,132,252,0.12);
-  --text-primary: #f0eaff;
-  --text-secondary:#9d8ec0;
-  --text-muted:   #5a4e7a;
-  --red:          #fb7185;
-  --green:        #34d399;
+  --bg-primary:   #0a0a0f;
+  --bg-secondary: #111118;
+  --bg-card:      #16161f;
+  --bg-hover:     #1e1e2a;
+  --border:       #2a2a3a;
+  --border-light: #3a3a50;
+  --accent:       #c9a96e;
+  --accent-dim:   #9a7a4a;
+  --accent-glow:  rgba(201,169,110,0.15);
+  --text-primary: #e8e6e0;
+  --text-secondary:#8a8799;
+  --text-muted:   #55536a;
+  --red:          #e05c5c;
+  --green:        #5ce08a;
   --radius:       4px;
   --radius-lg:    8px;
 }
 
-/* ── Light theme — Nebula mist ── */
+/* ── Light theme — warm paper tones ── */
 :root[data-theme="light"] {
-  --bg-primary:   #f5f3ff;
-  --bg-secondary: #ede9fe;
-  --bg-card:      #faf9ff;
-  --bg-hover:     #e4dffc;
-  --border:       #d4ccf5;
-  --border-light: #bfb5ef;
-  --accent:       #7c3aed;
-  --accent-dim:   #6d28d9;
-  --accent-glow:  rgba(124,58,237,0.12);
-  --text-primary: #1e1240;
-  --text-secondary:#4c3d7a;
-  --text-muted:   #7c6faa;
-  --red:          #be123c;
-  --green:        #047857;
+  --bg-primary:   #faf8f3;
+  --bg-secondary: #f4f0e8;
+  --bg-card:      #ede7da;
+  --bg-hover:     #e5ddd0;
+  --border:       #d8cfc2;
+  --border-light: #c8bfb2;
+  --accent:       #8b6030;
+  --accent-dim:   #a87840;
+  --accent-glow:  rgba(139,96,48,0.10);
+  --text-primary: #2c2a26;
+  --text-secondary:#5a5650;
+  --text-muted:   #908880;
+  --red:          #b84040;
+  --green:        #3a8a50;
   --radius:       4px;
   --radius-lg:    8px;
 }
@@ -59,27 +56,23 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Ambient gradient — Nebula dark */
+/* Ambient gradient — dark */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 70% at 80% 10%,  rgba(180,80,255,0.22)  0%, transparent 55%),
-    radial-gradient(ellipse 70% 60% at 10% 80%,  rgba(80,200,255,0.16)  0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 50%,  rgba(255,80,180,0.09)  0%, transparent 50%),
-    radial-gradient(ellipse 40% 40% at 20% 10%,  rgba(120,60,255,0.12)  0%, transparent 50%),
-    radial-gradient(ellipse 60% 50% at 90% 90%,  rgba(34,211,238,0.08)  0%, transparent 55%);
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(201,169,110,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(100,80,180,0.05) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
 
-/* Ambient gradient — Nebula light */
+/* Ambient gradient — light */
 :root[data-theme="light"] body::before {
   background:
-    radial-gradient(ellipse 80% 60% at 80% 0%,   rgba(139,92,246,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 10% 100%,  rgba(34,211,238,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 40% at 50% 50%,   rgba(236,72,153,0.04) 0%, transparent 55%);
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(139,96,48,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(180,130,80,0.05) 0%, transparent 60%);
 }
 
 #root { position: relative; z-index: 1; }
@@ -157,10 +150,10 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 }
 .card:hover {
   border-color: var(--border-light); transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(180,80,255,0.15), 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
 }
 :root[data-theme="light"] .card:hover {
-  box-shadow: 0 8px 28px rgba(124,58,237,0.12);
+  box-shadow: 0 8px 28px rgba(139,96,48,0.12);
 }
 
 /* ── Status tags ── */

@@ -93,11 +93,11 @@
   color: var(--text-primary);
 }
 .navItem.active {
-  background: rgba(192,132,252,0.12);
-  color: #c084fc;
+  background: var(--accent-glow);
+  color: var(--accent);
   font-weight: 500;
 }
-.navItem.active .navIcon { color: #c084fc; }
+.navItem.active .navIcon { color: var(--accent); }
 
 .navIcon {
   font-size: 13px;
