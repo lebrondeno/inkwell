@@ -66,11 +66,7 @@ export default function RichEditor({ content, onChange, placeholder }: Props) {
     if (!editor) return
     const current = editor.getHTML()
     if (content !== current && content !== '<p></p>') {
-      editor.commands.setContent(content, {
-        parseOptions: {
-          preserveWhitespace: false,
-        },
-      })
+      editor.commands.setContent(content as string)
     }
   }, [content]) // eslint-disable-line
 

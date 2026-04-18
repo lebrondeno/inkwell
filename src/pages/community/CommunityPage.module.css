@@ -32,9 +32,12 @@
 .feed { display: flex; flex-direction: column; gap: 2px; }
 .postCard {
   display: flex; gap: 16px; padding: 18px 16px; border-radius: var(--radius-lg);
-  cursor: default; transition: all 0.18s; border: 1px solid transparent;
-  animation: fadeUp 0.4s ease both;
+  cursor: default; transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s, border-color 0.18s;
+  border: 1px solid transparent;
+  opacity: 0;
+  transform: translateY(24px) scale(0.97);
 }
+.postCard.visible { opacity: 1; transform: translateY(0) scale(1); }
 .postCard:hover { background: var(--bg-card); border-color: var(--border); }
 .postEmoji { font-size: 24px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: var(--bg-hover); border-radius: var(--radius); flex-shrink: 0; }
 .postBody { flex: 1; min-width: 0; }
@@ -42,21 +45,27 @@
 .postTitle:hover { color: var(--accent); }
 .postExcerpt { font-size: 13px; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; }
 .postMeta { display: flex; gap: 8px; font-size: 11px; color: var(--text-muted); align-items: center; }
+.postAuthor { display: flex; align-items: center; gap: 6px; }
+.postAuthorAvatar { width: 20px; height: 20px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border); }
+.postAuthorInitial { width: 20px; height: 20px; border-radius: 6px; background: var(--accent-purple-glow); border: 1px solid rgba(192,132,252,0.2); color: var(--accent-purple); font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
 /* Members */
 .membersList { display: flex; flex-direction: column; gap: 8px; }
 .memberRow {
-  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
   transition: all 0.15s;
 }
 .memberRow:hover { border-color: var(--border-light); }
-.memberAvatar { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.2); color: var(--accent); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.memberAvatar { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-purple-glow); border: 1px solid rgba(192,132,252,0.2); color: var(--accent-purple); font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
 .memberAvatarImg { width: 100%; height: 100%; object-fit: cover; }
-.memberInfo { flex: 1; display: flex; align-items: center; gap: 8px; }
-.memberName { font-size: 14px; font-weight: 500; }
-.roleBadge { font-size: 10px; color: var(--accent); background: var(--accent-glow); padding: 2px 8px; border-radius: 100px; }
-.promoteBtn { background: none; border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; padding: 4px 10px; border-radius: var(--radius); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.memberInfo { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.memberName { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.memberUsername { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
+.memberJoined { font-size: 11px; color: var(--text-muted); }
+.memberRight { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.roleBadge { font-size: 10px; color: var(--accent); background: var(--accent-glow); padding: 3px 10px; border-radius: 100px; font-weight: 600; border: 1px solid rgba(201,169,110,0.2); white-space: nowrap; }
+.promoteBtn { background: none; border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; padding: 4px 10px; border-radius: var(--radius); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
 .promoteBtn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Queue */
