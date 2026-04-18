@@ -43,7 +43,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const u = session.user
         const name = u.user_metadata?.full_name || ''
         const bio = u.user_metadata?.bio || ''
-        upsertProfile(u.id, name, bio).catch(() => {})
+        const avatar = u.user_metadata?.avatar_url || ''
+        upsertProfile(u.id, name, bio, avatar).catch(() => {})
       }
     })
 

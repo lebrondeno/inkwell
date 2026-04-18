@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, getCommunity, getCommunityPosts, getCommunityMembers,
   getUserCommunityRole, joinCommunity, leaveCommunity, reviewCommunityPost,
@@ -31,7 +31,18 @@ export default function CommunityPage() {
   const [myArticles, setMyArticles] = useState<any[]>([])
   const [submitting, setSubmitting] = useState(false)
 
+  const postCardRefs = useRef<(HTMLElement | null)[]>([])
+
   useEffect(() => { if (slug) load() }, [slug, user])
+
+  useEffect(() => {
+    if (!loading && tab === 'feed') {
+      postCardRefs.current.forEach((el, i) => {
+        if (!el) return
+        setTimeout(() => { el.classList.add(styles.visible) }, i * 60)
+      })
+    }
+  }, [loading, posts, tab])
 
   const load = async () => {
     const c = await getCommunity(slug!)
@@ -76,9 +87,12 @@ export default function CommunityPage() {
 
   const handleReview = async (postId: string, status: 'approved' | 'rejected') => {
     await reviewCommunityPost(postId, status)
+    // Always remove from pending queue immediately
     setPending(p => p.filter(x => x.id !== postId))
     if (status === 'approved') {
-      load()
+      // Fetch just the newly approved post and prepend to feed
+      const fresh = await getCommunityPosts(community!.id, 'approved')
+      setPosts(fresh)
       showToast('Article approved and published ✦')
     } else {
       showToast('Article rejected')
@@ -195,7 +209,7 @@ export default function CommunityPage() {
               <p>{role ? 'Submit your first article to this community.' : 'Join to submit articles.'}</p>
             </div>
           ) : posts.filter(p => p.article).map((post, i) => (
-            <article key={post.id} className={styles.postCard} style={{ animationDelay: `${i * 0.05}s` }}>
+            <article key={post.id} className={styles.postCard} ref={el => { postCardRefs.current[i] = el }}>
               <div className={styles.postEmoji}>{post.article?.cover_emoji || '✦'}</div>
               <div className={styles.postBody}>
                 <Link to={`/articles/${post.article?.slug}`} className={styles.postTitle}>
@@ -205,7 +219,13 @@ export default function CommunityPage() {
                   {post.article?.summary || post.article?.content?.substring(0, 120)}
                 </p>
                 <div className={styles.postMeta}>
-                  <span>{post.submitter?.full_name || 'Anonymous'}</span>
+                  <div className={styles.postAuthor}>
+                    {post.submitter?.avatar_url
+                      ? <img src={post.submitter.avatar_url} alt="" className={styles.postAuthorAvatar} />
+                      : <span className={styles.postAuthorInitial}>{(post.submitter?.full_name || 'A')[0].toUpperCase()}</span>
+                    }
+                    <span>{post.submitter?.full_name || 'Anonymous'}</span>
+                  </div>
                   <span>·</span>
                   <span>{post.article?.reading_time || 1} min read</span>
                   <span>·</span>
@@ -235,14 +255,19 @@ export default function CommunityPage() {
                 }
               </div>
               <div className={styles.memberInfo}>
-                <span className={styles.memberName}>{m.profile?.full_name || 'Writer'}</span>
-                {m.role === 'admin' && <span className={styles.roleBadge}>⭐ Admin</span>}
+                <div>
+                  <span className={styles.memberName}>{m.profile?.full_name || 'Writer'}</span>
+                </div>
+                <span className={styles.memberJoined}>Joined {formatDistanceToNow(new Date(m.joined_at), { addSuffix: true })}</span>
               </div>
-              {role === 'admin' && m.role !== 'admin' && m.user_id !== user?.id && (
-                <button className={styles.promoteBtn} onClick={() => handlePromote(m.user_id, m.profile?.full_name || 'this user')}>
-                  Make Admin
-                </button>
-              )}
+              <div className={styles.memberRight}>
+                {m.role === 'admin' && <span className={styles.roleBadge}>⭐ Admin</span>}
+                {role === 'admin' && m.role !== 'admin' && m.user_id !== user?.id && (
+                  <button className={styles.promoteBtn} onClick={() => handlePromote(m.user_id, m.profile?.full_name || 'this user')}>
+                    Make Admin
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
