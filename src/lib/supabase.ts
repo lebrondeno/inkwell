@@ -305,21 +305,39 @@ export async function fetchBibleVerse(reference: string): Promise<BibleVerse | n
 }
 
 // ── Verse of the Day ────────────────────────────
-export async function fetchVerseOfDay(): Promise<BibleVerse | null> {
+export async function fetchVerseOfDay(communityId?: string): Promise<BibleVerse | null> {
   try {
-    // Use a random verse as verse of the day
+    // Comprehensive verse list
     const verses = [
-      'John 3:16',
-      'Psalm 23:1',
-      'Romans 8:28',
-      'Proverbs 3:5-6',
-      'Philippians 4:6',
-      'Matthew 11:28',
-      '1 Peter 5:7',
-      'Jeremiah 29:11'
+      'John 3:16', 'Psalm 23:1', 'Romans 8:28', 'Proverbs 3:5-6',
+      'Philippians 4:6', 'Matthew 11:28', '1 Peter 5:7', 'Jeremiah 29:11',
+      'Isaiah 41:10', '2 Corinthians 5:17', 'Ephesians 2:8-9', 'Romans 12:2',
+      'Matthew 6:33', 'Psalm 46:1', 'John 14:6', 'Galatians 5:22-23',
+      'Hebrews 11:1', '1 Corinthians 13:4-7', 'Joshua 1:9', 'Psalm 119:105',
+      'Matthew 5:14-16', 'Romans 5:8', 'John 15:13', 'Philippians 4:13',
+      'James 1:2-4', 'Proverbs 16:3', 'Colossians 3:23', 'Matthew 28:19-20',
+      'Psalm 37:4', 'Isaiah 40:31', '1 John 4:19'
     ]
-    const randomVerse = verses[Math.floor(Math.random() * verses.length)]
-    return await fetchBibleVerse(randomVerse)
+    
+    // Get today's date in YYYY-MM-DD format (UTC)
+    const today = new Date().toISOString().split('T')[0]
+    
+    // Create a deterministic seed from date + optional communityId
+    const seed = communityId ? `${today}-${communityId}` : today
+    
+    // Simple hash function to convert seed to number
+    let hash = 0
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32bit integer
+    }
+    
+    // Use absolute value and modulo to get index
+    const index = Math.abs(hash) % verses.length
+    const dailyVerse = verses[index]
+    
+    return await fetchBibleVerse(dailyVerse)
   } catch (err) {
     console.error('Error fetching verse of the day:', err)
     return null
@@ -477,4 +495,30 @@ export async function promoteToAdmin(communityId: string, userId: string) {
     .update({ role: 'admin' })
     .eq('community_id', communityId)
     .eq('user_id', userId)
+}
+
+export async function updateCommunity(communityId: string, updates: {
+  name?: string
+  description?: string
+  emoji?: string
+  category?: string
+}) {
+  return supabase
+    .from('communities')
+    .update(updates)
+    .eq('id', communityId)
+}
+
+export async function deleteCommunity(communityId: string) {
+  return supabase
+    .from('communities')
+    .delete()
+    .eq('id', communityId)
+}
+
+export async function deleteCommunityPost(postId: string) {
+  return supabase
+    .from('community_posts')
+    .delete()
+    .eq('id', postId)
 }

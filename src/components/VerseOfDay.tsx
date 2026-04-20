@@ -3,16 +3,20 @@ import { fetchVerseOfDay } from '../lib/supabase'
 import type { BibleVerse } from '../lib/supabase'
 import styles from './VerseOfDay.module.css'
 
-export default function VerseOfDay() {
+interface VerseOfDayProps {
+  communityId?: string
+}
+
+export default function VerseOfDay({ communityId }: VerseOfDayProps) {
   const [verse, setVerse] = useState<BibleVerse | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchVerseOfDay().then(v => {
+    fetchVerseOfDay(communityId).then(v => {
       setVerse(v)
       setLoading(false)
     })
-  }, [])
+  }, [communityId])
 
   if (loading) return (
     <div className={styles.card}>

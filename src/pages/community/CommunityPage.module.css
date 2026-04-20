@@ -103,10 +103,34 @@
 .articleOption:hover { border-color: var(--accent); background: var(--accent-glow); }
 .noArticles { text-align: center; padding: 24px; display: flex; flex-direction: column; gap: 12px; align-items: center; color: var(--text-secondary); font-size: 14px; }
 
+/* Delete post button */
+.deletePostBtn {
+  background: none; border: none; color: var(--red); 
+  font-size: 11px; cursor: pointer; padding: 0; 
+  text-decoration: underline; text-underline-offset: 2px;
+  font-family: 'DM Sans', sans-serif; transition: opacity 0.15s;
+}
+.deletePostBtn:hover { opacity: 0.7; }
+
+/* Edit form */
+.editForm { display: flex; flex-direction: column; gap: 16px; }
+.editForm label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-secondary); }
+.editForm label > span { font-weight: 500; color: var(--text-primary); }
+.editForm input, .editForm textarea, .editForm select {
+  padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text-primary); font-family: 'DM Sans', sans-serif;
+  font-size: 14px; transition: all 0.15s;
+}
+.editForm input:focus, .editForm textarea:focus, .editForm select:focus {
+  outline: none; border-color: var(--accent); background: var(--bg-hover);
+}
+.editForm textarea { resize: vertical; min-height: 80px; }
+.editActions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
 @media (max-width: 768px) {
   .page { padding: 20px 16px; }
   .hero { flex-direction: column; gap: 16px; }
-  .heroActions { flex-direction: row; align-items: center; width: 100%; }
+  .heroActions { flex-direction: row; align-items: center; width: 100%; flex-wrap: wrap; }
   .queueCard { flex-direction: column; }
   .queueActions { flex-direction: row; }
 }

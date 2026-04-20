@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, getCommunity, getCommunityPosts, getCommunityMembers,
   getUserCommunityRole, joinCommunity, leaveCommunity, reviewCommunityPost,
-  promoteToAdmin } from '../../lib/supabase'
+  promoteToAdmin, updateCommunity, deleteCommunity, deleteCommunityPost } from '../../lib/supabase'
 import type { Community, CommunityPost } from '../../lib/supabase'
 import { useApp } from '../../context/AppContext'
 import VerseOfDay from '../../components/VerseOfDay'
@@ -30,6 +30,11 @@ export default function CommunityPage() {
   const [showSubmit, setShowSubmit] = useState(false)
   const [myArticles, setMyArticles] = useState<any[]>([])
   const [submitting, setSubmitting] = useState(false)
+
+  // Edit community modal
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', description: '', emoji: '', category: '' })
+  const [updating, setUpdating] = useState(false)
 
   const postCardRefs = useRef<(HTMLElement | null)[]>([])
 
@@ -138,6 +143,51 @@ export default function CommunityPage() {
     setSubmitting(false)
   }
 
+  const openEdit = () => {
+    setEditForm({
+      name: community!.name,
+      description: community!.description || '',
+      emoji: community!.emoji || '🏛️',
+      category: community!.category || 'General'
+    })
+    setShowEdit(true)
+  }
+
+  const handleUpdateCommunity = async () => {
+    setUpdating(true)
+    const { error } = await updateCommunity(community!.id, editForm)
+    if (error) {
+      showToast(error.message, 'error')
+    } else {
+      showToast('Community updated ✦')
+      setShowEdit(false)
+      load()
+    }
+    setUpdating(false)
+  }
+
+  const handleDeleteCommunity = async () => {
+    if (!confirm(`Delete "${community!.name}"? This cannot be undone. All posts and members will be removed.`)) return
+    const { error } = await deleteCommunity(community!.id)
+    if (error) {
+      showToast(error.message, 'error')
+    } else {
+      showToast('Community deleted')
+      navigate('/communities')
+    }
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('Remove this article from the community?')) return
+    const { error } = await deleteCommunityPost(postId)
+    if (error) {
+      showToast(error.message, 'error')
+    } else {
+      showToast('Article removed')
+      load()
+    }
+  }
+
   if (loading) return (
     <div className={styles.page}>
       <div className={styles.skeletonHeader} />
@@ -172,7 +222,13 @@ export default function CommunityPage() {
               <>
                 <button className="btn btn-primary" onClick={openSubmit}>✦ Submit Article</button>
                 {role !== 'admin' && <button className="btn btn-ghost" onClick={handleLeave}>Leave</button>}
-                {role === 'admin' && <span className={styles.adminBadge}>⭐ Admin</span>}
+                {role === 'admin' && (
+                  <>
+                    <button className="btn btn-ghost" onClick={openEdit}>Edit Community</button>
+                    <button className="btn btn-danger" onClick={handleDeleteCommunity}>Delete</button>
+                    <span className={styles.adminBadge}>⭐ Admin</span>
+                  </>
+                )}
               </>
             ) : (
               <button className="btn btn-primary" onClick={handleJoin}>Join Community</button>
@@ -201,7 +257,7 @@ export default function CommunityPage() {
       {/* Feed tab */}
       {tab === 'feed' && (
         <div className={styles.feed}>
-          <VerseOfDay />
+          <VerseOfDay communityId={community.id} />
           {posts.filter(p => p.article).length === 0 ? (
             <div className={styles.empty}>
               <span>📄</span>
@@ -230,6 +286,18 @@ export default function CommunityPage() {
                   <span>{post.article?.reading_time || 1} min read</span>
                   <span>·</span>
                   <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                  {role === 'admin' && (
+                    <>
+                      <span>·</span>
+                      <button 
+                        className={styles.deletePostBtn}
+                        onClick={() => handleDeletePost(post.id)}
+                        title="Remove from community"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </article>
@@ -332,6 +400,71 @@ export default function CommunityPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit community modal */}
+      {showEdit && (
+        <div className={styles.overlay} onClick={() => setShowEdit(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Edit Community</h2>
+              <button className={styles.closeBtn} onClick={() => setShowEdit(false)}>✕</button>
+            </div>
+            <div className={styles.editForm}>
+              <label>
+                <span>Name</span>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  maxLength={50}
+                />
+              </label>
+              <label>
+                <span>Description</span>
+                <textarea
+                  value={editForm.description}
+                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  maxLength={200}
+                  rows={3}
+                />
+              </label>
+              <label>
+                <span>Emoji</span>
+                <input
+                  type="text"
+                  value={editForm.emoji}
+                  onChange={e => setEditForm({ ...editForm, emoji: e.target.value })}
+                  maxLength={2}
+                  placeholder="🏛️"
+                />
+              </label>
+              <label>
+                <span>Category</span>
+                <select
+                  value={editForm.category}
+                  onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                >
+                  <option value="General">General</option>
+                  <option value="Theology">Theology</option>
+                  <option value="Devotional">Devotional</option>
+                  <option value="Ministry">Ministry</option>
+                  <option value="Bible Study">Bible Study</option>
+                  <option value="Prayer">Prayer</option>
+                  <option value="Testimony">Testimony</option>
+                  <option value="Youth">Youth</option>
+                  <option value="Worship">Worship</option>
+                </select>
+              </label>
+              <div className={styles.editActions}>
+                <button className="btn btn-ghost" onClick={() => setShowEdit(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleUpdateCommunity} disabled={updating || !editForm.name}>
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
