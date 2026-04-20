@@ -366,3 +366,29 @@ export async function fetchVerseOfDay(): Promise<BibleVerse | null> {
   const selectedVerse = verses[dayOfYear % verses.length]
   return fetchBibleVerse(selectedVerse)
 }
+
+export async function updateCommunity(communityId: string, updates: {
+  name?: string
+  description?: string
+  emoji?: string
+  category?: string
+}) {
+  return supabase
+    .from('communities')
+    .update(updates)
+    .eq('id', communityId)
+}
+
+export async function deleteCommunity(communityId: string) {
+  return supabase
+    .from('communities')
+    .delete()
+    .eq('id', communityId)
+}
+
+export async function deleteCommunityPost(postId: string) {
+  return supabase
+    .from('community_posts')
+    .delete()
+    .eq('id', postId)
+}
