@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase, upsertProfile } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import styles from './Profile.module.css'
@@ -93,6 +94,17 @@ export default function Profile() {
             <p className={styles.email}>{user?.email}</p>
             {bio && <p className={styles.bio}>{bio}</p>}
             <div className={styles.badge}><span>✦</span><span>Inkwell Writer</span></div>
+
+            {user && (
+              <Link
+                to={`/writer/${user.id}`}
+                className={styles.publicProfileLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                🌐 View Public Profile →
+              </Link>
+            )}
           </div>
 
           <div className={styles.infoCard}>

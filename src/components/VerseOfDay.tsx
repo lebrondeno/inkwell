@@ -36,7 +36,7 @@ export default function VerseOfDay({ communityId }: VerseOfDayProps) {
       <div className={styles.header}>
         <span className={styles.icon}>✝</span>
         <span className={styles.label}>Verse of the Day</span>
-        <span className={styles.translation}>{verse.translation_name}</span>
+        <span className={styles.translation}>NIV</span>
       </div>
       <p className={styles.text}>"{verse.text?.trim()}"</p>
       <p className={styles.reference}>{verse.reference}</p>

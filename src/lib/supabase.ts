@@ -39,7 +39,7 @@ export interface Comment {
   user_id: string
   body: string
   created_at: string
-  profile?: { full_name: string; avatar_url: string }
+  profile?: { full_name: string }
 }
 
 // ── Writer profiles ──────────────────────────────
@@ -49,57 +49,21 @@ export async function getWriterProfile(userId: string): Promise<WriterProfile | 
     .select('id, full_name, bio, avatar_url, created_at')
     .eq('id', userId)
     .single()
-  return data || null
+  return data
 }
 
-export async function upsertProfile(userId: string, fullName: string, bio: string, avatarUrl?: string): Promise<WriterProfile | null> {
-  const { data } = await supabase
+export async function upsertProfile(userId: string, full_name: string, bio: string, avatar_url = "") {
+  return supabase
     .from('writer_profiles')
-    .upsert({
-      id: userId,
-      full_name: fullName,
-      bio,
-      avatar_url: avatarUrl || '',
-    })
-    .select()
-    .single()
-  return data || null
+    .upsert({ id: userId, full_name, bio, avatar_url, updated_at: new Date().toISOString() })
 }
 
-// ── Articles ────────────────────────────────────
-export async function getArticleBySlug(slug: string): Promise<Article | null> {
-  const { data } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .single()
-  return data || null
-}
-
-export async function getUserArticles(userId: string): Promise<Article[]> {
-  const { data } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-  return (data || []) as Article[]
-}
-
-export async function getPublishedArticles(): Promise<Article[]> {
-  const { data } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('status', 'published')
-    .order('created_at', { ascending: false })
-  return (data || []) as Article[]
-}
-
-export async function incrementView(slug: string): Promise<void> {
+// ── Views ────────────────────────────────────────
+export async function incrementView(slug: string) {
   await supabase.rpc('increment_view', { article_slug: slug })
 }
 
-// ── Reactions (likes) ────────────────────────────
+// ── Reactions ────────────────────────────────────
 export async function getReactionCount(articleId: string): Promise<number> {
   const { count } = await supabase
     .from('article_reactions')
@@ -132,75 +96,31 @@ export async function toggleReaction(articleId: string, userId: string): Promise
 
 // ── Comments ─────────────────────────────────────
 export async function getComments(articleId: string): Promise<Comment[]> {
-  try {
-    // Fetch comments without join first
-    const { data: comments, error: commentsError } = await supabase
-      .from('article_comments')
-      .select('*')
-      .eq('article_id', articleId)
-      .order('created_at', { ascending: true })
-    
-    if (commentsError) {
-      console.error('Error fetching comments:', commentsError)
-      return []
-    }
-    
-    if (!comments || comments.length === 0) {
-      console.log('No comments found')
-      return []
-    }
-    
-    // Fetch profiles for all comment authors
-    const userIds = [...new Set(comments.map((c: any) => c.user_id))]
-    const { data: profiles, error: profilesError } = await supabase
-      .from('writer_profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', userIds)
-    
-    if (profilesError) {
-      console.error('Error fetching profiles:', profilesError)
-    }
-    
-    // Merge profiles into comments
-    const profileMap = (profiles || []).reduce((acc: any, p: any) => {
-      acc[p.id] = p
-      return acc
-    }, {})
-    
-    const result = comments.map((c: any) => ({
-      ...c,
-      profile: profileMap[c.user_id] || { full_name: 'Anonymous', avatar_url: '' }
-    }))
-    
-    console.log('Fetched comments:', result.length, 'comments with profiles')
-    return result as Comment[]
-  } catch (err) {
-    console.error('Exception fetching comments:', err)
-    return []
-  }
+  const { data } = await supabase
+    .from('article_comments')
+    .select('*, profile:writer_profiles(full_name, avatar_url)')
+    .eq('article_id', articleId)
+    .order('created_at', { ascending: true })
+  return (data || []) as Comment[]
 }
 
 export async function addComment(articleId: string, userId: string, body: string) {
   try {
-    if (!articleId || !userId || !body.trim()) {
-      return { error: 'Missing required fields' }
-    }
-    
-    const { data, error } = await supabase
-      .from('article_comments')
-      .insert({ article_id: articleId, user_id: userId, body: body.trim() })
-      .select()
-      .single()
+    const { data, error } = await supabase.from('article_comments').insert({
+      article_id: articleId, 
+      user_id: userId, 
+      body: body.trim()
+    }).select().single()
     
     if (error) {
       console.error('Comment insert error:', error)
-      return { error: error.message || 'Failed to post comment' }
+      return { error: error.message }
     }
     
     return { data, error: null }
   } catch (err) {
     console.error('Comment insert exception:', err)
-    return { error: err instanceof Error ? err.message : 'Failed to save comment' }
+    return { error: 'Failed to save comment' }
   }
 }
 
@@ -257,122 +177,38 @@ export interface Community {
 export interface CommunityMember {
   community_id: string
   user_id: string
-  role: string
+  role: 'admin' | 'member'
   joined_at: string
-  profile?: {
-    full_name: string | null
-    avatar_url: string | null
-  }
 }
 
-// ── Utilities ────────────────────────────────────
-export async function searchArticles(query: string): Promise<Article[]> {
-  const { data } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('status', 'published')
-    .or(`title.ilike.%${query}%,content.ilike.%${query}%,tags.cs.{"${query}"}`)
-    .order('created_at', { ascending: false })
-  return (data || []) as Article[]
-}
-
-export interface BibleVerse {
-  reference: string
-  text: string
-  translation_name: string
-}
-
-// ── Bible API ────────────────────────────────────
-// bible-api.com: 'web' = World English Bible (closest free NIV-style), 'kjv' = KJV
-export async function fetchBibleVerse(reference: string): Promise<BibleVerse | null> {
-  try {
-    const response = await fetch(
-      `https://bible-api.com/${encodeURIComponent(reference)}?translation=web`
-    )
-
-    if (!response.ok) return null
-
-    const data = await response.json()
-    return {
-      reference: data.reference || reference,
-      text: data.text || '',
-      translation_name: 'NIV'
-    }
-  } catch (err) {
-    console.error('Error fetching Bible verse:', err)
-    return null
-  }
-}
-
-// ── Verse of the Day ────────────────────────────
-export async function fetchVerseOfDay(communityId?: string): Promise<BibleVerse | null> {
-  try {
-    // Comprehensive verse list
-    const verses = [
-      'John 3:16', 'Psalm 23:1', 'Romans 8:28', 'Proverbs 3:5-6',
-      'Philippians 4:6', 'Matthew 11:28', '1 Peter 5:7', 'Jeremiah 29:11',
-      'Isaiah 41:10', '2 Corinthians 5:17', 'Ephesians 2:8-9', 'Romans 12:2',
-      'Matthew 6:33', 'Psalm 46:1', 'John 14:6', 'Galatians 5:22-23',
-      'Hebrews 11:1', '1 Corinthians 13:4-7', 'Joshua 1:9', 'Psalm 119:105',
-      'Matthew 5:14-16', 'Romans 5:8', 'John 15:13', 'Philippians 4:13',
-      'James 1:2-4', 'Proverbs 16:3', 'Colossians 3:23', 'Matthew 28:19-20',
-      'Psalm 37:4', 'Isaiah 40:31', '1 John 4:19'
-    ]
-    
-    // Get today's date in YYYY-MM-DD format (UTC)
-    const today = new Date().toISOString().split('T')[0]
-    
-    // Create a deterministic seed from date + optional communityId
-    const seed = communityId ? `${today}-${communityId}` : today
-    
-    // Simple hash function to convert seed to number
-    let hash = 0
-    for (let i = 0; i < seed.length; i++) {
-      const char = seed.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32bit integer
-    }
-    
-    // Use absolute value and modulo to get index
-    const index = Math.abs(hash) % verses.length
-    const dailyVerse = verses[index]
-    
-    return await fetchBibleVerse(dailyVerse)
-  } catch (err) {
-    console.error('Error fetching verse of the day:', err)
-    return null
-  }
-}
-
-// ── Community types and functions ───────────────
 export interface CommunityPost {
   id: string
   community_id: string
   article_id: string
   submitted_by: string
   status: 'pending' | 'approved' | 'rejected'
+  reviewed_at: string | null
   created_at: string
-  article?: {
-    id: string
-    slug: string
-    title: string
-    summary: string | null
-    content: string | null
-    cover_emoji: string | null
-    reading_time: number | null
-  }
-  submitter?: {
-    full_name: string | null
-    avatar_url: string | null
-  }
+  article?: Article
+  submitter?: { full_name: string; avatar_url: string }
 }
 
+// ── Bible verse type ─────────────────────────────
+export interface BibleVerse {
+  reference: string
+  verses: { book_id: string; book_name: string; chapter: number; verse: number; text: string }[]
+  text: string
+  translation_id: string
+  translation_name: string
+}
+
+// ── Community helpers ─────────────────────────────
 export async function getCommunities(): Promise<Community[]> {
   const { data } = await supabase
     .from('communities')
     .select('*')
     .order('created_at', { ascending: false })
-  return (data || []) as Community[]
+  return data || []
 }
 
 export async function getCommunity(slug: string): Promise<Community | null> {
@@ -381,84 +217,10 @@ export async function getCommunity(slug: string): Promise<Community | null> {
     .select('*')
     .eq('slug', slug)
     .single()
-  return data || null
+  return data
 }
 
-export async function getCommunityPosts(communityId: string, status?: string): Promise<CommunityPost[]> {
-  let query = supabase
-    .from('community_posts')
-    .select(`
-      id, community_id, article_id, submitted_by, status, created_at,
-      article:articles ( id, slug, title, summary, content, cover_emoji, reading_time ),
-      submitter:writer_profiles!community_posts_submitted_by_fkey ( full_name, avatar_url )
-    `)
-    .eq('community_id', communityId)
-
-  if (status) {
-    query = query.eq('status', status)
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false })
-  if (error) {
-    console.error('getCommunityPosts error:', error)
-    // Fallback: fetch without join and manually enrich
-    const { data: plain } = await supabase
-      .from('community_posts')
-      .select('id, community_id, article_id, submitted_by, status, created_at')
-      .eq('community_id', communityId)
-      .order('created_at', { ascending: false })
-    if (!plain) return []
-    const articleIds = [...new Set(plain.map((p: any) => p.article_id))]
-    const submitterIds = [...new Set(plain.map((p: any) => p.submitted_by))]
-    const [{ data: articles }, { data: submitters }] = await Promise.all([
-      supabase.from('articles').select('id, slug, title, summary, content, cover_emoji, reading_time').in('id', articleIds),
-      supabase.from('writer_profiles').select('id, full_name, avatar_url').in('id', submitterIds),
-    ])
-    const articleMap = Object.fromEntries((articles || []).map((a: any) => [a.id, a]))
-    const submitterMap = Object.fromEntries((submitters || []).map((s: any) => [s.id, s]))
-    return plain.map((p: any) => ({
-      ...p,
-      article: articleMap[p.article_id] || null,
-      submitter: submitterMap[p.submitted_by] || null,
-    })) as CommunityPost[]
-  }
-  return (data || []) as unknown as CommunityPost[]
-}
-
-export async function getCommunityMembers(communityId: string): Promise<CommunityMember[]> {
-  const { data, error } = await supabase
-    .from('community_members')
-    .select(`
-      community_id, user_id, role, joined_at,
-      profile:writer_profiles!community_members_user_id_fkey ( full_name, avatar_url )
-    `)
-    .eq('community_id', communityId)
-    .order('joined_at', { ascending: true })
-
-  if (error) {
-    console.error('getCommunityMembers error:', error)
-    // Fallback: fetch members then manually join profiles
-    const { data: plain } = await supabase
-      .from('community_members')
-      .select('community_id, user_id, role, joined_at')
-      .eq('community_id', communityId)
-      .order('joined_at', { ascending: true })
-    if (!plain) return []
-    const userIds = plain.map((m: any) => m.user_id)
-    const { data: profilesData } = await supabase
-      .from('writer_profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', userIds)
-    const profileMap = Object.fromEntries((profilesData || []).map((p: any) => [p.id, p]))
-    return plain.map((m: any) => ({
-      ...m,
-      profile: profileMap[m.user_id] || { full_name: 'Member', avatar_url: null },
-    })) as CommunityMember[]
-  }
-  return (data || []) as unknown as CommunityMember[]
-}
-
-export async function getUserCommunityRole(communityId: string, userId: string): Promise<string | null> {
+export async function getUserCommunityRole(communityId: string, userId: string): Promise<'admin' | 'member' | null> {
   const { data } = await supabase
     .from('community_members')
     .select('role')
@@ -469,32 +231,140 @@ export async function getUserCommunityRole(communityId: string, userId: string):
 }
 
 export async function joinCommunity(communityId: string, userId: string) {
-  return supabase
-    .from('community_members')
-    .insert({ community_id: communityId, user_id: userId, role: 'member' })
+  return supabase.from('community_members').upsert({
+    community_id: communityId, user_id: userId, role: 'member'
+  })
 }
 
 export async function leaveCommunity(communityId: string, userId: string) {
-  return supabase
-    .from('community_members')
-    .delete()
-    .eq('community_id', communityId)
-    .eq('user_id', userId)
-}
-
-export async function reviewCommunityPost(postId: string, status: 'approved' | 'rejected') {
-  return supabase
-    .from('community_posts')
-    .update({ status })
-    .eq('id', postId)
+  return supabase.from('community_members').delete()
+    .eq('community_id', communityId).eq('user_id', userId)
 }
 
 export async function promoteToAdmin(communityId: string, userId: string) {
-  return supabase
-    .from('community_members')
+  const { error } = await supabase.from('community_members')
     .update({ role: 'admin' })
     .eq('community_id', communityId)
     .eq('user_id', userId)
+  return { error }
+}
+
+export async function getCommunityPosts(communityId: string, status = 'approved'): Promise<CommunityPost[]> {
+  // Step 1: get raw post rows
+  const { data: posts } = await supabase
+    .from('community_posts')
+    .select('id, community_id, article_id, submitted_by, status, reviewed_at, created_at')
+    .eq('community_id', communityId)
+    .eq('status', status)
+    .order('created_at', { ascending: false })
+  if (!posts || posts.length === 0) return []
+
+  // Step 2: enrich articles and submitter profiles in parallel
+  const articleIds  = [...new Set(posts.map(p => p.article_id))]
+  const submitterIds = [...new Set(posts.map(p => p.submitted_by))]
+
+  const [{ data: articles }, { data: submitters }] = await Promise.all([
+    supabase.from('articles').select('*').in('id', articleIds),
+    supabase.from('writer_profiles').select('id, full_name, avatar_url').in('id', submitterIds),
+  ])
+
+  const articleMap   = Object.fromEntries((articles || []).map(a => [a.id, a]))
+  const submitterMap = Object.fromEntries((submitters || []).map(s => [s.id, s]))
+
+  return posts.map(p => ({
+    ...p,
+    article:   articleMap[p.article_id]   || null,
+    submitter: submitterMap[p.submitted_by] || null,
+  })) as CommunityPost[]
+}
+
+export async function getCommunityMembers(communityId: string) {
+  // Step 1: get raw membership rows
+  const { data: members } = await supabase
+    .from('community_members')
+    .select('community_id, user_id, role, joined_at')
+    .eq('community_id', communityId)
+    .order('role', { ascending: true })
+  if (!members || members.length === 0) return []
+
+  // Step 2: fetch profiles separately to avoid ambiguous FK hint
+  const userIds = members.map(m => m.user_id)
+  const { data: profiles } = await supabase
+    .from('writer_profiles')
+    .select('id, full_name, avatar_url')
+    .in('id', userIds)
+
+  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+
+  return members.map(m => ({
+    ...m,
+    profile: profileMap[m.user_id] || null,
+  }))
+}
+
+export async function submitArticleToCommunity(communityId: string, articleId: string, userId: string, isAdmin: boolean) {
+  return supabase.from('community_posts').insert({
+    community_id: communityId,
+    article_id: articleId,
+    submitted_by: userId,
+    status: isAdmin ? 'approved' : 'pending'
+  })
+}
+
+export async function reviewCommunityPost(postId: string, status: 'approved' | 'rejected') {
+  return supabase.from('community_posts')
+    .update({ status, reviewed_at: new Date().toISOString() })
+    .eq('id', postId)
+}
+
+// ── Bible API ─────────────────────────────────────
+// Using free Bible API with CORS support
+const BIBLE_API_BASE = 'https://bible-api.com'
+
+export async function fetchBibleVerse(reference: string): Promise<BibleVerse | null> {
+  try {
+    const encoded = encodeURIComponent(reference)
+    const res = await fetch(`${BIBLE_API_BASE}/${encoded}`)
+    if (!res.ok) return null
+    
+    const data = await res.json()
+    
+    // Convert API response to our BibleVerse format
+    if (data.text && data.reference) {
+      return {
+        reference: data.reference,
+        verses: data.verses || [],
+        text: data.text,
+        translation_id: 'kjv',
+        translation_name: 'KJV'
+      }
+    }
+    
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchVerseOfDay(): Promise<BibleVerse | null> {
+  // Expanded list of daily verses for better variety
+  const verses = [
+    'John 3:16','Psalm 23:1','Proverbs 3:5-6','Isaiah 40:31','Philippians 4:13',
+    'Romans 8:28','Jeremiah 29:11','Psalm 46:1','Matthew 6:33','Joshua 1:9',
+    'Psalm 119:105','Romans 12:2','Galatians 5:22-23','2 Timothy 1:7','Hebrews 11:1',
+    'James 1:2-3','1 Corinthians 13:4-5','Ephesians 2:8-9','Colossians 3:23','1 Peter 5:7',
+    'Matthew 11:28','Psalm 27:1','Isaiah 41:10','Romans 15:13','Philippians 4:6-7',
+    'Proverbs 16:3','Lamentations 3:22-23','Micah 6:8','Matthew 5:16','2 Corinthians 5:17',
+    'Galatians 2:20','Ephesians 3:20','Philippians 2:3-4','Colossians 1:17','1 Thessalonians 5:16-18'
+  ]
+  
+  // Use day of year for consistent daily verse selection
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
+  
+  const selectedVerse = verses[dayOfYear % verses.length]
+  return fetchBibleVerse(selectedVerse)
 }
 
 export async function updateCommunity(communityId: string, updates: {

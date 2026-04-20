@@ -10,40 +10,47 @@ export default function PublicProfile() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useApp()
-  const [fullName, setFullName] = useState('Writer')
+  const [fullName, setFullName] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
   useEffect(() => { if (userId) loadWriter(userId) }, [userId])
 
   const loadWriter = async (uid: string) => {
     try {
-      // Load profile
       const profile = await getWriterProfile(uid)
-      if (profile?.full_name) setFullName(profile.full_name)
-      if (profile?.bio) setBio(profile.bio)
-      if (profile?.avatar_url) setAvatarUrl(profile.avatar_url)
 
-      // Load published articles (RLS allows public reads of published)
-      const { data, error } = await supabase
+      // Load published articles regardless of whether profile exists
+      const { data } = await supabase
         .from('articles')
         .select('*')
         .eq('user_id', uid)
         .eq('status', 'published')
         .order('created_at', { ascending: false })
 
-      if (error) console.error('Profile articles error:', error.message)
-      setArticles(data || [])
+      const arts = data || []
+
+      if (!profile && arts.length === 0) {
+        setNotFound(true)
+      } else {
+        if (profile?.full_name) setFullName(profile.full_name)
+        if (profile?.bio) setBio(profile.bio)
+        if (profile?.avatar_url) setAvatarUrl(profile.avatar_url)
+        setArticles(arts)
+      }
     } catch (e) {
       console.error('Profile load error:', e)
+      setNotFound(true)
     } finally {
       setLoading(false)
     }
   }
 
-  const initials = fullName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '✦'
+  const displayName = fullName || 'Inkwell Writer'
+  const initials = displayName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '✦'
   const totalWords = articles.reduce((s, a) => s + (a.word_count || 0), 0)
   const totalViews = articles.reduce((s, a) => s + (a.view_count || 0), 0)
 
@@ -53,6 +60,25 @@ export default function PublicProfile() {
         <div className={styles.center}>
           <span className={styles.spinner}>✦</span>
           <p>Loading writer…</p>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (notFound) {
+    return (
+      <div className={styles.wrapper}>
+        <nav className={styles.topNav}>
+          <button className={styles.backBtn} onClick={() => navigate('/discover')}>← Discover</button>
+          <span className={styles.navLogo}>✦ Inkwell</span>
+          <button className={styles.themeBtn} onClick={toggleTheme}>{theme === 'dark' ? '☀' : '☾'}</button>
+        </nav>
+        <div className={styles.center}>
+          <span style={{ fontSize: '48px' }}>✦</span>
+          <h2 style={{ marginTop: '16px' }}>Writer not found</h2>
+          <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>This profile doesn't exist or has no published content yet.</p>
+          <button className="btn btn-primary" style={{ marginTop: '20px' }} onClick={() => navigate('/discover')}>← Back to Discover</button>
         </div>
         <Footer />
       </div>
@@ -71,17 +97,21 @@ export default function PublicProfile() {
         {/* ── Profile hero ── */}
         <div className={styles.profileHero}>
           {avatarUrl ? (
-            <img src={avatarUrl} alt={fullName} className={styles.avatarImage} />
+            <img src={avatarUrl} alt={displayName} className={styles.avatarImage} />
           ) : (
             <div className={styles.avatar}>{initials}</div>
           )}
           <div className={styles.profileInfo}>
-            <h1 className={styles.name}>{fullName}</h1>
+            <h1 className={styles.name}>{displayName}</h1>
             {bio && <p className={styles.bio}>{bio}</p>}
             <div className={styles.statRow}>
-              <span className={styles.stat}><strong>{articles.length}</strong> articles</span>
-              <span className={styles.statDot}>·</span>
-              <span className={styles.stat}><strong>{totalWords.toLocaleString()}</strong> words</span>
+              <span className={styles.stat}><strong>{articles.length}</strong> article{articles.length !== 1 ? 's' : ''}</span>
+              {totalWords > 0 && (
+                <>
+                  <span className={styles.statDot}>·</span>
+                  <span className={styles.stat}><strong>{totalWords.toLocaleString()}</strong> words</span>
+                </>
+              )}
               {totalViews > 0 && (
                 <>
                   <span className={styles.statDot}>·</span>
