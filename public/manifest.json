@@ -7,26 +7,32 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0a0a0f",
-  "theme_color": "#c9a96e",
+  "theme_color": "#863bff",
   "lang": "en",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons.svg",
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192x192-maskable.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons.svg",
+      "src": "/icon-512x512-maskable.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["productivity", "writing", "lifestyle"],
@@ -36,30 +42,14 @@
       "short_name": "Write",
       "description": "Start a new article",
       "url": "/app/write",
-      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "Discover Articles",
       "short_name": "Discover",
       "description": "Browse published stories",
       "url": "/discover",
-      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/icons.svg",
-      "sizes": "540x720",
-      "type": "image/svg+xml",
-      "form_factor": "narrow",
-      "label": "Dashboard on mobile"
-    },
-    {
-      "src": "/icons.svg",
-      "sizes": "1280x720",
-      "type": "image/svg+xml",
-      "form_factor": "wide",
-      "label": "Writing studio on desktop"
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
     }
   ]
 }
