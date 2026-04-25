@@ -1,10 +1,14 @@
-const CACHE_NAME = 'inkwell-v2'
+const CACHE_NAME = 'inkwell-v3'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/favicon.svg',
-  '/icons.svg',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon-192x192.png',
+  '/icon-512x512.png',
+  '/icon-192x192-maskable.png',
+  '/icon-512x512-maskable.png',
+  '/apple-touch-icon.png'
 ]
 
 // Install — cache static assets
