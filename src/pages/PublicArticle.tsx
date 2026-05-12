@@ -15,7 +15,7 @@ import BibleVerseBlock from '../components/BibleVerseBlock'
 export default function PublicArticle() {
   const { slug } = useParams<{ slug: string }>()
   const navigate  = useNavigate()
-  const { theme, toggleTheme, user, showToast } = useApp()
+  const { theme, toggleTheme, user, showToast, getThemeAwareUrl } = useApp()
 
   const [article,       setArticle]       = useState<Article | null>(null)
   const [loading,       setLoading]       = useState(true)
@@ -89,7 +89,8 @@ export default function PublicArticle() {
   }
 
   const copyLink = () => {
-    navigator.clipboard.writeText(window.location.href)
+    const themeAwareUrl = getThemeAwareUrl(window.location.origin + window.location.pathname)
+    navigator.clipboard.writeText(themeAwareUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }

@@ -14,6 +14,7 @@ import PublicArticle    from './pages/PublicArticle'
 import PublicProfile    from './pages/PublicProfile'
 import Communities      from './pages/community/Communities'
 import CommunityPage    from './pages/community/CommunityPage'
+import PWAInstallBanner from './components/PWAInstallBanner'
 
 function AppRoutes() {
   const { user, loading } = useApp()
@@ -66,6 +67,7 @@ export default function App() {
       <AppProvider>
         <VercelAnalytics />
         <AppRoutes />
+        <PWAInstallBanner />
       </AppProvider>
     </BrowserRouter>
   )

@@ -12,6 +12,7 @@ interface AppContextType {
   toast: { message: string; type: 'success' | 'error' } | null
   theme: Theme
   toggleTheme: () => void
+  getThemeAwareUrl: (baseUrl: string) => string
   showToast: (message: string, type?: 'success' | 'error') => void
 }
 
@@ -23,6 +24,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [theme, setTheme] = useState<Theme>(() => {
+    // Check URL parameters for shared links
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlTheme = urlParams.get('theme') as Theme | null
+    
+    // Default to light theme for shared links
+    if (urlTheme) {
+      localStorage.setItem('theme', urlTheme)
+      return urlTheme
+    }
+    
     const saved = localStorage.getItem('theme') as Theme | null
     return saved || 'dark'
   })
@@ -61,13 +72,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   }
 
+  // Generate theme-aware URLs for sharing
+  const getThemeAwareUrl = (baseUrl: string) => {
+    const currentTheme = theme
+    const separator = baseUrl.includes('?') ? '&' : '?'
+    return `${baseUrl}${separator}theme=${currentTheme}`
+  }
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
   }
 
   return (
-    <AppContext.Provider value={{ user, session, loading, toast, theme, toggleTheme, showToast }}>
+    <AppContext.Provider value={{ user, session, loading, toast, theme, toggleTheme, getThemeAwareUrl, showToast }}>
       {children}
       {toast && (
         <div className={`toast ${toast.type}`}>
