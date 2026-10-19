@@ -3,7 +3,7 @@
 ## Stack
 - **React + TypeScript + Vite** — Frontend
 - **Supabase** — Database, Auth, Storage (all free tier)
-- **Gemini 2.0 Flash** — AI features (free, 1,500 req/day)
+- **Gemini 3.5 Flash** — AI features (free tier available, limits vary, see Google AI Studio)
 - **Vercel** — Hosting (free tier)
 
 ---

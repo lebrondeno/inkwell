@@ -10,7 +10,7 @@ export async function callGemini(prompt: string, maxTokens = 500): Promise<strin
     throw new Error('Gemini API key not configured')
   }
 
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
 
   const res = await fetch(endpoint, {
     method: 'POST',

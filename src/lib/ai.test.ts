@@ -79,7 +79,7 @@ describe('AI module (src/lib/ai.ts)', () => {
 
       expect(output).toBe('Generated reflection content')
       expect(captured.url).toBe(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
       )
       expect(captured.url).not.toContain('?key=')
       expect(captured.headers['x-goog-api-key']).toBe('test-gemini-api-key')
