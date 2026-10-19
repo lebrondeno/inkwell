@@ -1,10 +1,54 @@
+export const DEFAULT_MAX_CHARS = 1500
+export const ARTICLE_TOO_LONG_MSG = '⚠️ This article is too long to rewrite as a whole.'
+
 // Trim content to avoid sending huge prompts — keeps API usage low
-export function trimContent(text: string, maxChars = 1500): string {
+export function trimContent(text: string, maxChars = DEFAULT_MAX_CHARS): string {
   if (text.length <= maxChars) return text
   return text.substring(0, maxChars) + '...[trimmed]'
 }
 
-export async function callGemini(prompt: string, maxTokens = 500): Promise<string> {
+// Tail-trim helper to send the end of the article for continuation prompts
+export function trimTail(text: string, maxChars = DEFAULT_MAX_CHARS): string {
+  if (text.length <= maxChars) return text
+  return '...[trimmed]' + text.slice(-maxChars)
+}
+export const trimContentTail = trimTail
+
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+export function formatAiErrorMessage(msg: string): string {
+  return msg === 'Gemini API key not configured'
+    ? '⚠️ Add VITE_GEMINI_API_KEY to your .env file.'
+    : `⚠️ ${msg}`
+}
+
+export function formatAiInsertion(action: string, currentContent: string, rawResult: string): string {
+  const escaped = escapeHtml(rawResult)
+  if (action === 'continue') {
+    return (currentContent || '') + '<p>' + escaped.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
+  }
+  if (['improve', 'tone'].includes(action)) {
+    return escaped.split('\n\n').filter(Boolean).map(p => `<p>${p}</p>`).join('')
+  }
+  return currentContent
+}
+
+export interface CallGeminiOptions {
+  allowTruncated?: boolean
+}
+
+export async function callGemini(
+  prompt: string,
+  maxTokens = 500,
+  options?: CallGeminiOptions
+): Promise<string> {
   const apiKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() || ''
   if (!apiKey) {
     throw new Error('Gemini API key not configured')
@@ -24,6 +68,9 @@ export async function callGemini(prompt: string, maxTokens = 500): Promise<strin
         temperature: 0.7,
         maxOutputTokens: maxTokens,
         topP: 0.9,
+        thinkingConfig: {
+          thinkingLevel: 'minimal',
+        },
       },
     }),
   })
@@ -51,8 +98,12 @@ export async function callGemini(prompt: string, maxTokens = 500): Promise<strin
     throw new Error('AI content generation blocked due to safety policies')
   }
 
-  // Non-standard termination (allow STOP and MAX_TOKENS which still produce valid truncated text)
-  if (candidate.finishReason && !['STOP', 'MAX_TOKENS'].includes(candidate.finishReason)) {
+  // Check truncation: throw unless allowTruncated is explicitly enabled
+  if (candidate.finishReason === 'MAX_TOKENS') {
+    if (!options?.allowTruncated) {
+      throw new Error('AI generation reached token limit and was truncated')
+    }
+  } else if (candidate.finishReason && candidate.finishReason !== 'STOP') {
     throw new Error(`AI generation stopped unexpectedly (${candidate.finishReason})`)
   }
 
@@ -66,8 +117,9 @@ export async function callGemini(prompt: string, maxTokens = 500): Promise<strin
 
 export async function continueWriting(content: string): Promise<string> {
   return callGemini(
-    `You are a thoughtful writing assistant. Continue this piece naturally, matching the author's voice. Write 2 short paragraphs only. Return only the continuation, no preamble:\n\n${trimContent(content)}`,
-    400
+    `You are a thoughtful writing assistant. Continue this piece naturally, matching the author's voice. Write 2 short paragraphs only. Return only the continuation, no preamble:\n\n${trimTail(content)}`,
+    400,
+    { allowTruncated: true }
   )
 }
 
@@ -88,14 +140,16 @@ export async function summarizeArticle(content: string): Promise<string> {
 export async function generateOutline(topic: string): Promise<string> {
   return callGemini(
     `Create a concise article outline for: "${trimContent(topic, 300)}". Include a title and 4 main sections with one-line descriptions each.`,
-    300
+    300,
+    { allowTruncated: true }
   )
 }
 
 export async function getReflectionPrompts(topic: string): Promise<string> {
   return callGemini(
     `Generate 5 thought-provoking reflection questions about: "${trimContent(topic, 200) || 'life and personal growth'}". Number them 1-5.`,
-    300
+    300,
+    { allowTruncated: true }
   )
 }
 
@@ -119,5 +173,5 @@ export async function customPrompt(userPrompt: string, articleContent?: string):
   const context = articleContent
     ? `\n\nArticle context:\n${trimContent(articleContent, 800)}`
     : ''
-  return callGemini(`${userPrompt}${context}`, 500)
+  return callGemini(`${userPrompt}${context}`, 500, { allowTruncated: true })
 }

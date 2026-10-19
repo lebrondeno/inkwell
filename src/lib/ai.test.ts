@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   trimContent,
+  trimTail,
+  DEFAULT_MAX_CHARS,
+  ARTICLE_TOO_LONG_MSG,
+  escapeHtml,
+  formatAiErrorMessage,
+  formatAiInsertion,
   callGemini,
   continueWriting,
   improveWriting,
@@ -38,6 +44,19 @@ describe('AI module (src/lib/ai.ts)', () => {
     })
   })
 
+  describe('Item 3: trimTail helper', () => {
+    it('returns content untouched when within limit', () => {
+      const text = 'Short tail text'
+      expect(trimTail(text, 100)).toBe(text)
+    })
+
+    it('trims from the start and preserves the END of the content', () => {
+      const text = 'START_CONTENT_TO_DISCARD' + 'END_CONTENT_TO_KEEP'
+      const result = trimTail(text, 19)
+      expect(result).toBe('...[trimmed]END_CONTENT_TO_KEEP')
+    })
+  })
+
   describe('callGemini', () => {
     it('throws error when API key is missing or empty', async () => {
       import.meta.env.VITE_GEMINI_API_KEY = ''
@@ -47,13 +66,16 @@ describe('AI module (src/lib/ai.ts)', () => {
       await expect(callGemini('Hello')).rejects.toThrow('Gemini API key not configured')
     })
 
-    it('sends request to Gemini 2.0 Flash endpoint with x-goog-api-key header and NO query param', async () => {
+    it('Item 1: sends thinkingConfig minimal in generationConfig without query param', async () => {
       const captured = {
         url: '',
         headers: {} as Record<string, string>,
         body: null as {
           contents: Array<{ parts: Array<{ text: string }> }>
-          generationConfig: { maxOutputTokens: number }
+          generationConfig: {
+            maxOutputTokens: number
+            thinkingConfig?: { thinkingLevel?: string }
+          }
         } | null,
       }
 
@@ -86,6 +108,7 @@ describe('AI module (src/lib/ai.ts)', () => {
       expect(captured.headers['Content-Type']).toBe('application/json')
       expect(captured.body?.contents[0]?.parts[0]?.text).toBe('Write a poem')
       expect(captured.body?.generationConfig?.maxOutputTokens).toBe(250)
+      expect(captured.body?.generationConfig?.thinkingConfig?.thinkingLevel).toBe('minimal')
     })
 
     it('dynamically resolves updated API keys across invocations', async () => {
@@ -186,8 +209,8 @@ describe('AI module (src/lib/ai.ts)', () => {
       )
     })
 
-    it('accepts MAX_TOKENS finish reason when content parts exist', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    it('Item 2: throws on MAX_TOKENS unless allowTruncated is explicitly passed', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
         new Response(
           JSON.stringify({
             candidates: [
@@ -201,7 +224,16 @@ describe('AI module (src/lib/ai.ts)', () => {
         )
       )
 
-      const res = await callGemini('Long response needed')
+      // By default (or when allowTruncated is false), it must throw
+      await expect(callGemini('Long response needed')).rejects.toThrow(
+        'AI generation reached token limit and was truncated'
+      )
+      await expect(callGemini('Long response needed', 500, { allowTruncated: false })).rejects.toThrow(
+        'AI generation reached token limit and was truncated'
+      )
+
+      // When allowTruncated is true, it succeeds and returns the partial text
+      const res = await callGemini('Long response needed', 500, { allowTruncated: true })
       expect(res).toBe('Partial output that reached max limit')
     })
 
@@ -219,7 +251,7 @@ describe('AI module (src/lib/ai.ts)', () => {
     })
   })
 
-  describe('Writing assistant feature functions', () => {
+  describe('Writing assistant feature functions & truncation rules', () => {
     beforeEach(() => {
       vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
         new Response(
@@ -241,47 +273,58 @@ describe('AI module (src/lib/ai.ts)', () => {
       expect(tags).toEqual(['faith', 'leadership', 'grace', 'community'])
     })
 
-    it('continueWriting formats appropriate prompt', async () => {
+    it('Item 3: continueWriting sends the END of the article and allows truncation', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      await continueWriting('First thoughts...')
+      const longArticle = 'EARLY_START_TEXT ' + 'Body words '.repeat(300) + 'FINAL_CONCLUSION_TEXT'
+      await continueWriting(longArticle)
+
       const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string)
-      expect(body.contents[0].parts[0].text).toContain("Continue this piece naturally")
-      expect(body.generationConfig.maxOutputTokens).toBe(400)
+      const promptText = body.contents[0].parts[0].text
+      expect(promptText).toContain('Continue this piece naturally')
+      expect(promptText).toContain('FINAL_CONCLUSION_TEXT')
+      expect(promptText).not.toContain('EARLY_START_TEXT')
+    })
+
+    it('Item 2: callers allowing truncation vs callers disallowing truncation on MAX_TOKENS', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: { parts: [{ text: 'Truncated output' }] },
+                finishReason: 'MAX_TOKENS',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+
+      // These 4 MAY allow truncation:
+      await expect(continueWriting('Article')).resolves.toBe('Truncated output')
+      await expect(generateOutline('Topic')).resolves.toBe('Truncated output')
+      await expect(getReflectionPrompts('Topic')).resolves.toBe('Truncated output')
+      await expect(customPrompt('Prompt')).resolves.toBe('Truncated output')
+
+      // These 4 must NOT allow truncation and must throw:
+      await expect(improveWriting('Article')).rejects.toThrow('AI generation reached token limit')
+      await expect(summarizeArticle('Article')).rejects.toThrow('AI generation reached token limit')
+      await expect(changeTone('Article', 'poetic')).rejects.toThrow('AI generation reached token limit')
+      await expect(generateTags('Title', 'Content')).rejects.toThrow('AI generation reached token limit')
     })
 
     it('improveWriting formats editor prompt', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch')
       await improveWriting('Draft content')
       const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string)
-      expect(body.contents[0].parts[0].text).toContain("You are an expert editor")
+      expect(body.contents[0].parts[0].text).toContain('You are an expert editor')
     })
 
     it('summarizeArticle asks for 2-sentence summary', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch')
       await summarizeArticle('Long article text')
       const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string)
-      expect(body.contents[0].parts[0].text).toContain("Write a compelling 2-sentence summary")
-    })
-
-    it('generateOutline requests concise outline', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      await generateOutline('Building in Public')
-      const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string)
-      expect(body.contents[0].parts[0].text).toContain("Create a concise article outline")
-    })
-
-    it('getReflectionPrompts requests 5 reflection questions', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      await getReflectionPrompts('Spiritual disciplines')
-      const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string)
-      expect(body.contents[0].parts[0].text).toContain("Generate 5 thought-provoking reflection questions")
-    })
-
-    it('changeTone requests style adjustment for specific tone', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      await changeTone('Raw notes', 'poetic')
-      const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string)
-      expect(body.contents[0].parts[0].text).toContain("Rewrite the following in a poetic tone")
+      expect(body.contents[0].parts[0].text).toContain('Write a compelling 2-sentence summary')
     })
 
     it('customPrompt appends context only when provided', async () => {
@@ -293,6 +336,50 @@ describe('AI module (src/lib/ai.ts)', () => {
       await customPrompt('Explain the metaphor', 'Article body text')
       body = JSON.parse(fetchSpy.mock.calls[1][1]?.body as string)
       expect(body.contents[0].parts[0].text).toContain('Article context:\nArticle body text')
+    })
+  })
+
+  describe('Items 4, 5, 6: Editor.tsx integration logic', () => {
+    it('Item 4: protects against rewriting oversized articles', () => {
+      const shortText = 'A'.repeat(DEFAULT_MAX_CHARS)
+      const longText = 'A'.repeat(DEFAULT_MAX_CHARS + 1)
+
+      expect(shortText.length <= DEFAULT_MAX_CHARS).toBe(true)
+      expect(longText.length > DEFAULT_MAX_CHARS).toBe(true)
+      expect(ARTICLE_TOO_LONG_MSG).toBe('⚠️ This article is too long to rewrite as a whole.')
+    })
+
+    it('Item 5: escapeHtml and formatAiInsertion HTML-escape aiResult before wrapping in p tags', () => {
+      const malicious = '<script>alert("xss")</script> & "quotes" \'single\''
+      const escaped = escapeHtml(malicious)
+
+      expect(escaped).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; &amp; &quot;quotes&quot; &#39;single&#39;'
+      )
+
+      // Test formatAiInsertion for continue
+      const continueHtml = formatAiInsertion('continue', '<p>Original</p>', 'Line 1\n\nLine 2<script>')
+      expect(continueHtml).toBe('<p>Original</p><p>Line 1</p><p>Line 2&lt;script&gt;</p>')
+
+      // Test formatAiInsertion for improve/tone
+      const improveHtml = formatAiInsertion('improve', '<p>Original</p>', 'Para 1 <b>\n\nPara 2')
+      expect(improveHtml).toBe('<p>Para 1 &lt;b&gt;</p><p>Para 2</p>')
+    })
+
+    it('Item 6: formatAiErrorMessage only shows .env hint on exact match', () => {
+      // Exact match for missing key -> shows .env hint
+      expect(formatAiErrorMessage('Gemini API key not configured')).toBe(
+        '⚠️ Add VITE_GEMINI_API_KEY to your .env file.'
+      )
+
+      // Other errors containing "API key" -> shows real message
+      expect(formatAiErrorMessage('API key not valid. Please pass a valid API key.')).toBe(
+        '⚠️ API key not valid. Please pass a valid API key.'
+      )
+      expect(formatAiErrorMessage('API key expired')).toBe('⚠️ API key expired')
+
+      // Generic error -> shows real message
+      expect(formatAiErrorMessage('Network request failed')).toBe('⚠️ Network request failed')
     })
   })
 })

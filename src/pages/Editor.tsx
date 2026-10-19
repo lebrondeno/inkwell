@@ -6,7 +6,8 @@ import PublishModal from '../components/PublishModal'
 import RichEditor from '../components/RichEditor'
 import {
   continueWriting, improveWriting, summarizeArticle,
-  generateOutline, getReflectionPrompts, changeTone, generateTags, customPrompt
+  generateOutline, getReflectionPrompts, changeTone, generateTags, customPrompt,
+  DEFAULT_MAX_CHARS, ARTICLE_TOO_LONG_MSG, formatAiErrorMessage, formatAiInsertion
 } from '../lib/ai'
 import type { Article } from '../lib/supabase'
 import styles from './Editor.module.css'
@@ -111,6 +112,12 @@ export default function Editor() {
     try {
       const plain = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
       const title = article.title || ''
+
+      if (['improve', 'tone'].includes(action) && plain.length > DEFAULT_MAX_CHARS) {
+        setAiResult(ARTICLE_TOO_LONG_MSG)
+        return
+      }
+
       let result = ''
       switch (action) {
         case 'continue':  result = await continueWriting(plain); break
@@ -129,17 +136,14 @@ export default function Editor() {
       setAiResult(result)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      setAiResult(msg.includes('API key') ? '⚠️ Add VITE_GEMINI_API_KEY to your .env file.' : `⚠️ ${msg}`)
+      setAiResult(formatAiErrorMessage(msg))
     } finally { setAiLoading(false) }
   }
 
   const applyAIResult = () => {
-    if (aiAction === 'continue') {
-      const html = (article.content || '') + '<p>' + aiResult.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>'
-      handleChange('content', html)
-    } else if (['improve','tone'].includes(aiAction)) {
-      handleChange('content', aiResult.split('\n\n').filter(Boolean).map(p => `<p>${p}</p>`).join(''))
-    }
+    if (!aiResult || aiResult.startsWith('⚠️')) return
+    const html = formatAiInsertion(aiAction, article.content || '', aiResult)
+    handleChange('content', html)
     setAiPanel(false); setAiResult(''); showToast('AI suggestion applied')
   }
 
@@ -319,7 +323,7 @@ export default function Editor() {
                   <span>✦ Result</span>
                   {aiResult && !aiLoading && (
                     <div style={{ display:'flex', gap:'8px' }}>
-                      {['continue','improve','tone'].includes(aiAction) && (
+                      {['continue','improve','tone'].includes(aiAction) && !aiResult.startsWith('⚠️') && (
                         <button className="btn btn-primary" style={{ fontSize:'11px', padding:'5px 12px' }} onClick={applyAIResult}>Apply</button>
                       )}
                       <button className={styles.closeBtn} onClick={() => setAiResult('')}>✕</button>
