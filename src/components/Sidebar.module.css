@@ -42,9 +42,9 @@
   flex-shrink: 0;
 }
 .themeBtn:hover {
-  background: var(--accent-glow);
-  border-color: var(--accent);
-  transform: scale(1.08);
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  color: var(--text-primary);
 }
 
 /* Nav */
@@ -93,9 +93,9 @@
   color: var(--text-primary);
 }
 .navItem.active {
-  background: var(--accent-glow);
+  background: var(--bg-hover);
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 600;
 }
 .navItem.active .navIcon { color: var(--accent); }
 
@@ -111,13 +111,13 @@
   margin-left: auto;
   font-size: 9px;
   padding: 2px 7px;
-  background: var(--accent-glow);
+  background: var(--bg-hover);
   color: var(--accent);
   border-radius: 100px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 700;
-  border: 1px solid rgba(201,169,110,0.25);
+  border: 1px solid var(--border);
 }
 
 /* Bottom */

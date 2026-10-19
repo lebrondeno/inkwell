@@ -55,9 +55,10 @@
 }
 
 .toolBtn.active {
-  background: var(--accent-glow);
+  background: var(--bg-hover);
   color: var(--accent);
-  border-color: rgba(201,169,110,0.25);
+  border-color: var(--border-light);
+  font-weight: 700;
 }
 
 .select {

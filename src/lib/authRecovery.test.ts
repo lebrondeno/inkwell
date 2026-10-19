@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { supabase } from './supabase'
 
 describe('Password Recovery flow', () => {
@@ -76,5 +76,106 @@ describe('Password Recovery flow', () => {
 
     expect(error).toBeInstanceOf(Error)
     expect(error?.message).toBe('User not found')
+  })
+})
+
+describe('Pre-client hash detection and recovery state persistence', () => {
+  const originalWindow = globalThis.window
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  afterEach(() => {
+    if (originalWindow !== undefined) {
+      globalThis.window = originalWindow
+    } else {
+      delete (globalThis as { window?: Window & typeof globalThis }).window
+    }
+  })
+
+  it('detects type=recovery in window.location.hash and sets inkwell_password_recovery in sessionStorage', async () => {
+    const { checkAndPersistRecoveryState } = await import('./supabase')
+    const store: Record<string, string> = {}
+    const mockSessionStorage = {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, val: string) => { store[key] = val },
+      removeItem: (key: string) => { delete store[key] },
+      clear: () => { Object.keys(store).forEach(k => delete store[k]) },
+    } as unknown as Storage
+
+    globalThis.window = {
+      location: {
+        hash: '#access_token=xyz123&expires_in=3600&type=recovery',
+        search: '',
+        pathname: '/',
+      } as unknown as Location,
+      sessionStorage: mockSessionStorage,
+    } as unknown as Window & typeof globalThis
+
+    const detected = checkAndPersistRecoveryState()
+    expect(detected).toBe(true)
+    expect(mockSessionStorage.getItem('inkwell_password_recovery')).toBe('1')
+  })
+
+  it('detects type=recovery in window.location.search and sets recovery flag', async () => {
+    const { checkAndPersistRecoveryState } = await import('./supabase')
+    const store: Record<string, string> = {}
+    const mockSessionStorage = {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, val: string) => { store[key] = val },
+      removeItem: (key: string) => { delete store[key] },
+      clear: () => { Object.keys(store).forEach(k => delete store[k]) },
+    } as unknown as Storage
+
+    globalThis.window = {
+      location: {
+        hash: '',
+        search: '?code=abc789&type=recovery',
+        pathname: '/reset-password',
+      } as unknown as Location,
+      sessionStorage: mockSessionStorage,
+    } as unknown as Window & typeof globalThis
+
+    const detected = checkAndPersistRecoveryState()
+    expect(detected).toBe(true)
+    expect(mockSessionStorage.getItem('inkwell_password_recovery')).toBe('1')
+  })
+
+  it('does not set inkwell_password_recovery when type=recovery is absent', async () => {
+    const { checkAndPersistRecoveryState } = await import('./supabase')
+    const store: Record<string, string> = {}
+    const mockSessionStorage = {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, val: string) => { store[key] = val },
+      removeItem: (key: string) => { delete store[key] },
+      clear: () => { Object.keys(store).forEach(k => delete store[k]) },
+    } as unknown as Storage
+
+    globalThis.window = {
+      location: {
+        hash: '#access_token=regular_token&type=signup',
+        search: '',
+        pathname: '/',
+      } as unknown as Location,
+      sessionStorage: mockSessionStorage,
+    } as unknown as Window & typeof globalThis
+
+    const detected = checkAndPersistRecoveryState()
+    expect(detected).toBe(false)
+    expect(mockSessionStorage.getItem('inkwell_password_recovery')).toBeNull()
+  })
+
+  it('allows clearing inkwell_password_recovery from sessionStorage upon completion', async () => {
+    const store: Record<string, string> = { inkwell_password_recovery: '1' }
+    const mockSessionStorage = {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, val: string) => { store[key] = val },
+      removeItem: (key: string) => { delete store[key] },
+    }
+
+    expect(mockSessionStorage.getItem('inkwell_password_recovery')).toBe('1')
+    mockSessionStorage.removeItem('inkwell_password_recovery')
+    expect(mockSessionStorage.getItem('inkwell_password_recovery')).toBeNull()
   })
 })

@@ -21,7 +21,7 @@
   color: var(--accent); font-size: 16px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; transition: all 0.2s;
 }
-.themeBtn:hover { background: var(--accent-glow); border-color: var(--accent); }
+.themeBtn:hover { background: var(--bg-hover); border-color: var(--border-light); color: var(--text-primary); }
 
 /* Container */
 .container { flex: 1; max-width: 1200px; margin: 0 auto; width: 100%; padding: 56px 32px 80px; }
@@ -44,7 +44,7 @@
   font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s;
 }
 .tab:hover { color: var(--text-primary); background: var(--bg-hover); }
-.tabActive { background: var(--accent-glow) !important; color: var(--accent) !important; border-color: rgba(201,169,110,0.3) !important; }
+.tabActive { background: var(--bg-hover) !important; color: var(--text-primary) !important; border-color: var(--border-light) !important; font-weight: 600 !important; }
 .tabGated { opacity: 0.65; }
 .gatedBadge {
   font-size: 9px; font-weight: 700; letter-spacing: 0.06em;

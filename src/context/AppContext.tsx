@@ -14,6 +14,8 @@ interface AppContextType {
   theme: Theme
   toggleTheme: () => void
   getThemeAwareUrl: (baseUrl: string) => string
+  isPasswordRecovery: boolean
+  clearPasswordRecovery: () => void
   showToast: (message: string, type?: 'success' | 'error') => void
 }
 
@@ -40,6 +42,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return saved || 'dark'
   })
 
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && sessionStorage.getItem('inkwell_password_recovery') === '1'
+    } catch {
+      return false
+    }
+  })
+
+  const clearPasswordRecovery = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('inkwell_password_recovery')
+      }
+    } catch {
+      // ignore
+    }
+    setIsPasswordRecovery(false)
+  }
+
   useEffect(() => {
     // If Supabase redirected to root or current path with recovery hash, ensure we route to /reset-password
     if (window.location.hash.includes('type=recovery') && window.location.pathname !== '/reset-password') {
@@ -58,6 +79,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLoading(false)
 
       if (event === 'PASSWORD_RECOVERY') {
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('inkwell_password_recovery', '1')
+          }
+        } catch {
+          // ignore
+        }
+        setIsPasswordRecovery(true)
         navigate('/reset-password')
       }
 
@@ -96,7 +125,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ user, session, loading, toast, theme, toggleTheme, getThemeAwareUrl, showToast }}>
+    <AppContext.Provider value={{ user, session, loading, toast, theme, toggleTheme, getThemeAwareUrl, showToast, isPasswordRecovery, clearPasswordRecovery }}>
       {children}
       {toast && (
         <div className={`toast ${toast.type}`}>

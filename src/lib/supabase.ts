@@ -8,6 +8,28 @@ const rawSupabaseUrl  = import.meta.env.VITE_SUPABASE_URL || ''
 export const supabaseUrl     = normalizeSupabaseUrl(rawSupabaseUrl)
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
+export function checkAndPersistRecoveryState(): boolean {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const hash = window.location.hash || ''
+      const search = window.location.search || ''
+      const pathname = window.location.pathname || ''
+      if (hash.includes('type=recovery') || search.includes('type=recovery') || pathname === '/reset-password') {
+        if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+          window.sessionStorage.setItem('inkwell_password_recovery', '1')
+          return true
+        }
+      }
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+// Module load time: detect recovery token before createClient strips window.location.hash
+checkAndPersistRecoveryState()
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export type ArticleStatus = 'draft' | 'published' | 'archived'
@@ -265,11 +287,24 @@ export async function leaveCommunity(communityId: string, userId: string) {
 }
 
 export async function promoteToAdmin(communityId: string, userId: string) {
-  const { error } = await supabase.from('community_members')
+  return supabase.from('community_members')
     .update({ role: 'admin' })
     .eq('community_id', communityId)
     .eq('user_id', userId)
-  return { error }
+}
+
+export async function demoteToMember(communityId: string, userId: string) {
+  return supabase.from('community_members')
+    .update({ role: 'member' })
+    .eq('community_id', communityId)
+    .eq('user_id', userId)
+}
+
+export async function removeCommunityMember(communityId: string, userId: string) {
+  return supabase.from('community_members')
+    .delete()
+    .eq('community_id', communityId)
+    .eq('user_id', userId)
 }
 
 export async function getCommunityPosts(communityId: string, status = 'approved'): Promise<CommunityPost[]> {

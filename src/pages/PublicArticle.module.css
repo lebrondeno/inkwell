@@ -128,43 +128,44 @@
   cursor: pointer; transition: all 0.2s; white-space: nowrap;
   font-family: 'DM Sans', sans-serif;
 }
-.bookmarkBarBtn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
-.bookmarkBarBtn.bookmarked { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.bookmarkBarBtn:hover { border-color: var(--border-light); color: var(--accent); background: var(--bg-hover); }
+.bookmarkBarBtn.bookmarked { border-color: var(--accent); color: var(--accent); background: var(--bg-hover); }
 
 /* Share card */
-.shareCard { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 20px; }
+.shareCard { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
 .shareCardTop { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 12px; }
 .shareCardTitle { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.copyBtn { padding: 6px 14px; background: var(--accent); color: var(--bg-primary); border: none; border-radius: var(--radius); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; font-family: 'DM Sans', sans-serif; }
+.copyBtn { padding: 6px 14px; background: var(--accent); color: #ffffff; border: none; border-radius: var(--radius); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; white-space: nowrap; font-family: 'DM Sans', sans-serif; }
 .copyBtn:hover { background: var(--accent-dim); }
-.copyBtnCopied { background: var(--green) !important; }
+.copyBtnCopied { background: var(--green) !important; color: #ffffff !important; }
 .linkInput { width: 100%; padding: 8px 12px; font-size: 11px; font-family: 'DM Mono', monospace; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-muted); cursor: text; }
 .linkInput:focus { outline: none; border-color: var(--accent); }
 
 /* Author card */
-.authorCard { display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); text-decoration: none; transition: all 0.25s; }
-.authorCard:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 28px var(--accent-glow); }
+.authorCard { display: flex; align-items: center; gap: 16px; padding: 20px; margin-bottom: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); text-decoration: none; transition: all 0.18s ease; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
+.authorCard:hover { border-color: var(--border-light); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08); }
+:root[data-theme="dark"] .authorCard:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
 .authorCardAvatar {
-  width: 64px; height: 64px; border-radius: 50%;
+  width: 56px; height: 56px; border-radius: 50%;
   background: var(--accent); color: white;
   display: flex; align-items: center; justify-content: center;
   font-weight: 600; font-size: 18px; flex-shrink: 0;
 }
 
 .authorCardAvatarImage {
-  width: 64px; height: 64px; border-radius: 50%;
+  width: 56px; height: 56px; border-radius: 50%;
   object-fit: cover; flex-shrink: 0;
-  border: 2px solid var(--accent-glow);
+  border: 1px solid var(--border);
 }
 
 .authorCardInfo { flex: 1; min-width: 0; }
 .authorCardName { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
 .authorCardBio { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.authorCardArrow { font-size: 18px; color: var(--accent); flex-shrink: 0; }
+.authorCardArrow { font-size: 16px; color: var(--accent); flex-shrink: 0; }
 
 /* ── Comments section ── */
 .commentsSection { margin-bottom: 40px; }
-.commentsTitle { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 20px; color: var(--text-primary); }
+.commentsTitle { font-family: 'Playfair Display', Georgia, serif; font-size: 22px; margin-bottom: 20px; color: var(--text-primary); }
 
 .commentForm { margin-bottom: 28px; }
 .commentInput {
@@ -172,9 +173,9 @@
   border-radius: var(--radius-lg); color: var(--text-primary);
   font-size: 14px; font-family: 'DM Sans', sans-serif;
   line-height: 1.6; padding: 14px 16px; resize: vertical;
-  transition: border-color 0.2s; margin-bottom: 10px;
+  transition: border-color 0.15s ease; margin-bottom: 10px;
 }
-.commentInput:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.commentInput:focus { outline: none; border-color: var(--accent); }
 .commentInput::placeholder { color: var(--text-muted); }
 .commentFormFooter { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .charCount { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; }

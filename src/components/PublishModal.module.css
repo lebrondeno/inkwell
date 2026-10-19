@@ -33,12 +33,12 @@
   text-align: center;
 }
 .checkmark {
-  width: 56px; height: 56px; border-radius: 50%;
-  background: var(--accent); color: var(--bg-primary);
-  font-size: 24px; font-weight: 700;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--accent); color: #ffffff;
+  font-size: 22px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 16px;
-  box-shadow: 0 8px 24px var(--accent-glow);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 .successTitle {
   font-family: 'Playfair Display', serif;

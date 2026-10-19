@@ -9,7 +9,7 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const { user, session, loading: authLoading, showToast, theme, toggleTheme } = useApp()
+  const { user, session, loading: authLoading, showToast, theme, toggleTheme, isPasswordRecovery, clearPasswordRecovery } = useApp()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -42,7 +42,8 @@ export default function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
-      showToast('Password updated successfully! Welcome back.')
+      clearPasswordRecovery()
+      showToast('Password updated successfully!')
       navigate('/app', { replace: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update password'
@@ -52,24 +53,25 @@ export default function ResetPassword() {
     }
   }
 
-  // Check if there is an active session or recovery token in URL
+  const handleCancel = () => {
+    clearPasswordRecovery()
+    navigate(user ? '/app' : '/')
+  }
+
+  // Check if there is an active session or recovery token in URL/storage
   const hasTokenInUrl =
     window.location.hash.includes('access_token') ||
     window.location.search.includes('code') ||
-    window.location.hash.includes('type=recovery')
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('type=recovery')
 
-  const canReset = !!user || !!session || hasTokenInUrl
+  const canReset = Boolean(user || session || hasTokenInUrl || isPasswordRecovery)
 
   return (
     <div className={styles.resetRoot}>
-      {/* Background ornaments */}
-      <div className={styles.orb1} />
-      <div className={styles.orb2} />
-      <div className={styles.grid} />
-
       {/* Top strip */}
-      <div className={styles.topStrip}>
-        <button className={styles.stripLogo} onClick={() => navigate(user ? '/app' : '/')}>
+      <header className={styles.topStrip}>
+        <button className={styles.stripLogo} onClick={handleCancel}>
           ✦ Inkwell
         </button>
         <div className={styles.stripRight}>
@@ -80,9 +82,9 @@ export default function ResetPassword() {
             {theme === 'dark' ? '☀' : '☾'}
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className={styles.container}>
+      <main className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
             <span className={styles.logoMark}>✦</span>
@@ -98,7 +100,7 @@ export default function ResetPassword() {
               <button
                 type="button"
                 className={`btn btn-primary ${styles.submitBtn}`}
-                onClick={() => navigate('/')}
+                onClick={handleCancel}
               >
                 Return to Sign In
               </button>
@@ -115,7 +117,7 @@ export default function ResetPassword() {
               <button
                 type="button"
                 className={`btn btn-primary ${styles.submitBtn}`}
-                onClick={() => navigate('/')}
+                onClick={handleCancel}
               >
                 Return to Sign In
               </button>
@@ -123,8 +125,9 @@ export default function ResetPassword() {
           ) : (
             <form onSubmit={handleSubmit} className={styles.form}>
               <div className={styles.field}>
-                <label>New Password</label>
+                <label htmlFor="new-password">New Password</label>
                 <input
+                  id="new-password"
                   type="password"
                   placeholder="••••••••"
                   value={password}
@@ -137,8 +140,9 @@ export default function ResetPassword() {
               </div>
 
               <div className={styles.field}>
-                <label>Confirm New Password</label>
+                <label htmlFor="confirm-password">Confirm New Password</label>
                 <input
+                  id="confirm-password"
                   type="password"
                   placeholder="••••••••"
                   value={confirmPassword}
@@ -154,12 +158,12 @@ export default function ResetPassword() {
                   className={`btn btn-primary ${styles.submitBtn}`}
                   disabled={loading}
                 >
-                  {loading ? 'Updating password…' : 'Update Password'}
+                  {loading ? 'Saving password…' : 'Save Password'}
                 </button>
                 <button
                   type="button"
                   className={`btn btn-ghost ${styles.cancelBtn}`}
-                  onClick={() => navigate(user ? '/app' : '/')}
+                  onClick={handleCancel}
                   disabled={loading}
                 >
                   Cancel
@@ -168,7 +172,7 @@ export default function ResetPassword() {
             </form>
           )}
         </div>
-      </div>
+      </main>
     </div>
   )
 }

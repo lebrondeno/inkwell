@@ -18,13 +18,22 @@ import ResetPassword    from './pages/ResetPassword'
 import PWAInstallBanner from './components/PWAInstallBanner'
 
 function AppRoutes() {
-  const { user, loading } = useApp()
+  const { user, loading, isPasswordRecovery } = useApp()
 
   if (loading) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', color:'var(--accent)', fontSize:'32px' }}>
         <span style={{ animation:'spin 2s linear infinite', display:'block' }}>✦</span>
       </div>
+    )
+  }
+
+  if (isPasswordRecovery) {
+    return (
+      <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to="/reset-password" replace />} />
+      </Routes>
     )
   }
 

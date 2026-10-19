@@ -14,10 +14,13 @@
   flex-wrap: wrap;
 }
 .greeting {
-  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--accent); margin-bottom: 6px; font-weight: 500;
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 6px; font-weight: 600;
 }
-.title { font-size: 36px; font-weight: 900; margin-bottom: 5px; line-height: 1.1; }
+.title {
+  font-size: 34px; font-weight: 700; margin-bottom: 6px; line-height: 1.15;
+  letter-spacing: -0.02em;
+}
 .sub { color: var(--text-secondary); font-size: 14px; }
 
 /* Stats */
@@ -31,30 +34,41 @@
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 22px 18px;
   display: flex; flex-direction: column; gap: 5px;
-  transition: all 0.2s;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.statCard:hover { border-color: var(--border-light); transform: translateY(-2px); }
+.statCard:hover {
+  border-color: var(--border-light); transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
 .statIcon { color: var(--accent); font-size: 13px; margin-bottom: 3px; }
-.statValue { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--text-primary); }
-.statLabel { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.statValue {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 28px; font-weight: 700; color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.statLabel { font-size: 11px; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; }
 
 /* Section */
 .section { margin-bottom: 44px; }
 .sectionHeader {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;
 }
-.sectionHeader h2 { font-size: 18px; font-weight: 600; }
+.sectionHeader h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
+}
 
 /* Article list */
-.articleList { display: flex; flex-direction: column; gap: 2px; }
+.articleList { display: flex; flex-direction: column; gap: 4px; }
 .articleRow {
   display: flex; align-items: center; gap: 14px;
-  padding: 14px 16px; border-radius: var(--radius-lg);
-  cursor: pointer; transition: all 0.18s;
+  padding: 14px 16px; border-radius: var(--radius);
+  cursor: pointer; transition: all 0.15s ease;
   border: 1px solid transparent;
-  animation: fadeUp 0.4s ease both; position: relative;
+  animation: fadeUp 0.3s ease both; position: relative;
 }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .articleRow:hover { background: var(--bg-card); border-color: var(--border); }
 .articleEmoji {
   font-size: 18px; width: 34px; height: 34px;
@@ -63,7 +77,7 @@
 }
 .articleInfo { flex: 1; min-width: 0; }
 .articleInfo h3 {
-  font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 600;
+  font-family: 'Playfair Display', Georgia, serif; font-size: 15px; font-weight: 600;
   margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .articleInfo p { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -72,10 +86,10 @@
 .viewLive {
   position: absolute; right: -4px; top: -4px;
   width: 24px; height: 24px; border-radius: 6px;
-  background: var(--accent); color: var(--bg-primary);
+  background: var(--accent); color: #ffffff;
   font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
-  text-decoration: none; opacity: 0; transition: opacity 0.15s;
+  text-decoration: none; opacity: 0; transition: opacity 0.15s ease;
   z-index: 2;
 }
 .articleRow:hover .viewLive { opacity: 1; }
@@ -89,8 +103,8 @@
   text-align: center; padding: 56px 32px;
   border: 1px dashed var(--border-light); border-radius: var(--radius-lg);
 }
-.emptyIcon { font-size: 28px; color: var(--accent); margin-bottom: 14px; opacity: 0.5; }
-.empty h3 { font-size: 20px; margin-bottom: 7px; }
+.emptyIcon { font-size: 28px; color: var(--accent); margin-bottom: 14px; opacity: 0.7; }
+.empty h3 { font-size: 18px; margin-bottom: 7px; font-family: 'Playfair Display', Georgia, serif; }
 .empty p { color: var(--text-secondary); font-size: 14px; margin-bottom: 22px; }
 
 /* Community grid */
@@ -104,14 +118,18 @@
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 18px;
   text-decoration: none; display: flex; flex-direction: column; gap: 10px;
-  transition: all 0.22s; animation: fadeUp 0.4s ease both;
+  transition: all 0.18s ease; animation: fadeUp 0.3s ease both;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.communityCard:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 10px 28px var(--accent-glow); }
+.communityCard:hover {
+  border-color: var(--border-light); transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
 .communityCardTop { display: flex; justify-content: space-between; align-items: center; }
-.communityEmoji { font-size: 26px; }
+.communityEmoji { font-size: 24px; }
 .communityDate { font-size: 11px; color: var(--text-muted); }
 .communityTitle {
-  font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600;
+  font-family: 'Playfair Display', Georgia, serif; font-size: 16px; font-weight: 600;
   color: var(--text-primary); margin: 0; line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
@@ -130,12 +148,15 @@
 .prompt {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 18px; background: var(--bg-card);
-  border: 1px solid var(--border); border-radius: var(--radius-lg);
-  cursor: pointer; transition: all 0.18s;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; transition: all 0.15s ease;
   font-family: 'DM Sans', sans-serif; font-size: 13px;
   color: var(--text-secondary); text-align: left;
 }
-.prompt:hover { border-color: var(--accent); color: var(--text-primary); background: var(--accent-glow); transform: translateY(-1px); }
+.prompt:hover {
+  border-color: var(--border-light); color: var(--text-primary);
+  background: var(--bg-hover); transform: translateY(-1px);
+}
 
 /* Responsive */
 @media (max-width: 768px) {

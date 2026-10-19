@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, getCommunity, getCommunityPosts, getCommunityMembers,
   getUserCommunityRole, joinCommunity, leaveCommunity, reviewCommunityPost,
-  promoteToAdmin, updateCommunity, deleteCommunity, deleteCommunityPost } from '../../lib/supabase'
+  promoteToAdmin, demoteToMember, removeCommunityMember, updateCommunity, deleteCommunity, deleteCommunityPost } from '../../lib/supabase'
 import type { Community, CommunityPost, CommunityMember, Article } from '../../lib/supabase'
 import { useApp } from '../../context/AppContext'
 import VerseOfDay from '../../components/VerseOfDay'
@@ -25,6 +25,7 @@ export default function CommunityPage() {
   const [tab, setTab]             = useState<Tab>('feed')
   const [loading, setLoading]     = useState(true)
   const [memberCount, setMemberCount] = useState(0)
+  const isCreator = Boolean(user && community && community.created_by === user.id)
 
   // Submit article modal
   const [showSubmit, setShowSubmit] = useState(false)
@@ -95,12 +96,43 @@ export default function CommunityPage() {
   }
 
   const handlePromote = async (memberId: string, memberName: string) => {
-    if (!confirm(`Make ${memberName} an admin?`)) return
+    if (community && memberId === community.created_by) return
     const { error } = await promoteToAdmin(community!.id, memberId)
     if (error) {
       showToast(`Failed to promote: ${error.message}`, 'error')
     } else {
       showToast(`${memberName} is now an admin`)
+      load()
+    }
+  }
+
+  const handleDemote = async (memberId: string, memberName: string) => {
+    if (community && memberId === community.created_by) {
+      showToast('Cannot demote community creator', 'error')
+      return
+    }
+    const { error } = await demoteToMember(community!.id, memberId)
+    if (error) {
+      showToast(`Failed to demote: ${error.message}`, 'error')
+    } else {
+      showToast(`${memberName} is now a regular member`)
+      load()
+    }
+  }
+
+  const handleRemove = async (memberId: string, memberName: string) => {
+    if (community && memberId === community.created_by) {
+      showToast('Cannot remove community creator', 'error')
+      return
+    }
+    if (!confirm(`Remove ${memberName} from this community?`)) return
+    const { error } = await removeCommunityMember(community!.id, memberId)
+    if (error) {
+      showToast(`Failed to remove member: ${error.message}`, 'error')
+    } else {
+      showToast(`${memberName} removed from community`)
+      setMemberCount(prev => Math.max(0, prev - 1))
+      setMembers(prev => prev.filter(m => m.user_id !== memberId))
       load()
     }
   }
@@ -298,25 +330,60 @@ export default function CommunityPage() {
               <h3>No members yet</h3>
               <p>Be the first to join this community.</p>
             </div>
-          ) : members.map(m => (
-            <div key={m.user_id} className={styles.memberRow}>
-              <div className={styles.memberAvatar}>
-                {m.profile?.avatar_url
-                  ? <img src={m.profile.avatar_url} alt="" className={styles.memberAvatarImg} />
-                  : <span>{(m.profile?.full_name || 'U')[0].toUpperCase()}</span>
-                }
+          ) : members.map(m => {
+            const isMemberCreator = Boolean(community && m.user_id === community.created_by)
+            const isMemberAdmin = m.role === 'admin' && !isMemberCreator
+
+            return (
+              <div key={m.user_id} className={styles.memberRow}>
+                <div className={styles.memberAvatar}>
+                  {m.profile?.avatar_url
+                    ? <img src={m.profile.avatar_url} alt="" className={styles.memberAvatarImg} />
+                    : <span>{(m.profile?.full_name || 'U')[0].toUpperCase()}</span>
+                  }
+                </div>
+                <div className={styles.memberInfo}>
+                  <span className={styles.memberName}>{m.profile?.full_name || 'Writer'}</span>
+                  {isMemberCreator ? (
+                    <span className={styles.roleBadgeCreator}>Creator</span>
+                  ) : isMemberAdmin ? (
+                    <span className={styles.roleBadgeAdmin}>Admin</span>
+                  ) : (
+                    <span className={styles.roleBadgeMember}>Member</span>
+                  )}
+                </div>
+
+                {isCreator && !isMemberCreator && (
+                  <div className={styles.memberActions}>
+                    {m.role !== 'admin' ? (
+                      <button
+                        type="button"
+                        className={styles.promoteBtn}
+                        onClick={() => handlePromote(m.user_id, m.profile?.full_name || 'this user')}
+                      >
+                        Make Admin
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.demoteBtn}
+                        onClick={() => handleDemote(m.user_id, m.profile?.full_name || 'this user')}
+                      >
+                        Un-admin
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.removeBtn}
+                      onClick={() => handleRemove(m.user_id, m.profile?.full_name || 'this user')}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className={styles.memberInfo}>
-                <span className={styles.memberName}>{m.profile?.full_name || 'Writer'}</span>
-                {m.role === 'admin' && <span className={styles.roleBadge}>⭐ Admin</span>}
-              </div>
-              {role === 'admin' && m.role !== 'admin' && m.user_id !== user?.id && (
-                <button className={styles.promoteBtn} onClick={() => handlePromote(m.user_id, m.profile?.full_name || 'this user')}>
-                  Make Admin
-                </button>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

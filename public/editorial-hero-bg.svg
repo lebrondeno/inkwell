@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- Film grain filter -->
+    <filter id="filmGrain" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+      <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch" result="noise" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.04 0" in="noise" result="coloredNoise" />
+      <feComposite operator="in" in2="SourceGraphic" result="grainOverlay" />
+      <feBlend mode="multiply" in="SourceGraphic" in2="grainOverlay" />
+    </filter>
+
+    <!-- Deep atmospheric background gradient -->
+    <radialGradient id="skyAtmosphere" cx="50%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#3a271d" />
+      <stop offset="25%" stop-color="#241812" />
+      <stop offset="60%" stop-color="#140e0b" />
+      <stop offset="100%" stop-color="#080605" />
+    </radialGradient>
+
+    <!-- Volumetric light beam gradient -->
+    <linearGradient id="lightBeam" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf3de" stop-opacity="0.32" />
+      <stop offset="35%" stop-color="#e8af63" stop-opacity="0.18" />
+      <stop offset="70%" stop-color="#ba6d2c" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#18110b" stop-opacity="0" />
+    </linearGradient>
+
+    <linearGradient id="lightBeamCounter" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f7e5c1" stop-opacity="0.25" />
+      <stop offset="40%" stop-color="#d9944a" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#18110b" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Arch stone gradient -->
+    <linearGradient id="archStone" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2e2118" />
+      <stop offset="50%" stop-color="#1c130d" />
+      <stop offset="100%" stop-color="#0d0907" />
+    </linearGradient>
+
+    <linearGradient id="archStoneHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5a412f" stop-opacity="0.6" />
+      <stop offset="20%" stop-color="#d69d58" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="#2a1d15" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#0b0806" stop-opacity="0.8" />
+    </linearGradient>
+
+    <linearGradient id="pillarShade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#110c08" />
+      <stop offset="30%" stop-color="#3d2a1d" />
+      <stop offset="45%" stop-color="#a6723e" stop-opacity="0.7" />
+      <stop offset="60%" stop-color="#2d1e15" />
+      <stop offset="100%" stop-color="#090604" />
+    </linearGradient>
+
+    <radialGradient id="centerWarmth" cx="50%" cy="45%" r="45%">
+      <stop offset="0%" stop-color="#f5ba68" stop-opacity="0.22" />
+      <stop offset="40%" stop-color="#9a531e" stop-opacity="0.10" />
+      <stop offset="80%" stop-color="#150e0a" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="floorReflection" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#281910" stop-opacity="0.8" />
+      <stop offset="20%" stop-color="#150e09" />
+      <stop offset="100%" stop-color="#050403" />
+    </linearGradient>
+  </defs>
+
+  <!-- Deep base tone -->
+  <rect width="1920" height="1080" fill="url(#skyAtmosphere)" />
+
+  <!-- Center warm atmospheric glow -->
+  <circle cx="960" cy="420" r="640" fill="url(#centerWarmth)" />
+
+  <!-- Background Library Stacks / High Shelves (Silhouetted deep perspective) -->
+  <g opacity="0.45">
+    <!-- Center clerestory window -->
+    <path d="M 880 140 C 880 90, 1040 90, 1040 140 L 1040 380 L 880 380 Z" fill="#66462c" opacity="0.4" />
+    <path d="M 900 150 C 900 110, 1020 110, 1020 150 L 1020 370 L 900 370 Z" fill="#fce4b8" opacity="0.3" />
+    <line x1="960" y1="100" x2="960" y2="370" stroke="#2a1c13" stroke-width="6" />
+    <line x1="900" y1="230" x2="1020" y2="230" stroke="#2a1c13" stroke-width="4" />
+    <line x1="900" y1="300" x2="1020" y2="300" stroke="#2a1c13" stroke-width="4" />
+
+    <!-- Distant arched gallery level -->
+    <path d="M 400 320 C 400 240, 560 240, 560 320 L 560 480 L 400 480 Z" fill="#1b120c" />
+    <path d="M 600 300 C 600 210, 780 210, 780 300 L 780 480 L 600 480 Z" fill="#1e140d" />
+    <path d="M 1140 300 C 1140 210, 1320 210, 1320 300 L 1320 480 L 1140 480 Z" fill="#1e140d" />
+    <path d="M 1360 320 C 1360 240, 1520 240, 1520 320 L 1520 480 L 1360 480 Z" fill="#1b120c" />
+  </g>
+
+  <!-- Midground Architectural Nave & Grand Vaulted Arches -->
+  <g>
+    <!-- Outer flanking vaults -->
+    <path d="M 0 0 L 320 0 L 320 780 C 260 620, 160 520, 0 460 Z" fill="url(#archStone)" />
+    <path d="M 1920 0 L 1600 0 L 1600 780 C 1660 620, 1760 520, 1920 460 Z" fill="url(#archStone)" />
+
+    <!-- Colossal Primary Arch Left -->
+    <path d="M 120 1080 L 260 1080 L 260 540 C 260 220, 720 140, 960 140 C 960 110, 480 110, 200 420 C 140 500, 120 620, 120 1080 Z" fill="url(#archStone)" />
+    <!-- Colossal Primary Arch Right -->
+    <path d="M 1800 1080 L 1660 1080 L 1660 540 C 1660 220, 1200 140, 960 140 C 960 110, 1440 110, 1720 420 C 1780 500, 1800 620, 1800 1080 Z" fill="url(#archStone)" />
+
+    <!-- Arch moulding rim highlights (illuminated inner chamfer) -->
+    <path d="M 260 560 C 340 320, 620 180, 960 180 C 1300 180, 1580 320, 1660 560" fill="none" stroke="url(#archStoneHighlight)" stroke-width="8" />
+    <path d="M 280 580 C 370 360, 640 210, 960 210 C 1280 210, 1550 360, 1640 580" fill="none" stroke="#e8a857" stroke-width="1.5" opacity="0.45" />
+
+    <!-- Classical Architectural Pillars (Fluted side columns) -->
+    <!-- Left Column -->
+    <rect x="220" y="460" width="80" height="620" fill="url(#pillarShade)" />
+    <rect x="210" y="440" width="100" height="24" fill="#3a281c" />
+    <rect x="200" y="425" width="120" height="18" fill="#4f3525" />
+    <!-- Fluting lines left column -->
+    <line x1="236" y1="465" x2="236" y2="1080" stroke="#0e0a07" stroke-width="3" />
+    <line x1="240" y1="465" x2="240" y2="1080" stroke="#875b33" stroke-width="2" opacity="0.6" />
+    <line x1="256" y1="465" x2="256" y2="1080" stroke="#0e0a07" stroke-width="3" />
+    <line x1="260" y1="465" x2="260" y2="1080" stroke="#a47141" stroke-width="2" opacity="0.7" />
+    <line x1="276" y1="465" x2="276" y2="1080" stroke="#0e0a07" stroke-width="3" />
+    <line x1="280" y1="465" x2="280" y2="1080" stroke="#5d3c22" stroke-width="2" opacity="0.5" />
+
+    <!-- Right Column -->
+    <rect x="1620" y="460" width="80" height="620" fill="url(#pillarShade)" />
+    <rect x="1610" y="440" width="100" height="24" fill="#3a281c" />
+    <rect x="1600" y="425" width="120" height="18" fill="#4f3525" />
+    <!-- Fluting lines right column -->
+    <line x1="1636" y1="465" x2="1636" y2="1080" stroke="#0e0a07" stroke-width="3" />
+    <line x1="1640" y1="465" x2="1640" y2="1080" stroke="#875b33" stroke-width="2" opacity="0.5" />
+    <line x1="1656" y1="465" x2="1656" y2="1080" stroke="#0e0a07" stroke-width="3" />
+    <line x1="1660" y1="465" x2="1660" y2="1080" stroke="#a47141" stroke-width="2" opacity="0.6" />
+    <line x1="1676" y1="465" x2="1676" y2="1080" stroke="#0e0a07" stroke-width="3" />
+    <line x1="1680" y1="465" x2="1680" y2="1080" stroke="#5d3c22" stroke-width="2" opacity="0.4" />
+  </g>
+
+  <!-- Dramatic Volumetric Light Beams (God rays streaming through clerestory) -->
+  <g style="mix-blend-mode: screen;">
+    <!-- Main Left-to-Center Beam -->
+    <polygon points="920,120 1020,120 1480,1080 640,1080" fill="url(#lightBeam)" opacity="0.8" />
+    <!-- Concentrated Core Beam -->
+    <polygon points="940,130 980,130 1260,1080 820,1080" fill="url(#lightBeam)" opacity="0.9" />
+    <!-- Secondary High Counter-beam -->
+    <polygon points="760,180 820,160 520,1080 340,1080" fill="url(#lightBeamCounter)" opacity="0.4" />
+    <polygon points="1100,160 1160,180 1580,1080 1400,1080" fill="url(#lightBeam)" opacity="0.4" />
+  </g>
+
+  <!-- Polished Herringbone / Flagstone Hall Floor with Reflection -->
+  <rect x="0" y="860" width="1920" height="220" fill="url(#floorReflection)" />
+  <line x1="0" y1="860" x2="1920" y2="860" stroke="#e09e53" stroke-width="1.5" opacity="0.25" />
+  <!-- Perspective flagstone seams -->
+  <line x1="960" y1="860" x2="960" y2="1080" stroke="#1c120b" stroke-width="1.5" />
+  <line x1="960" y1="860" x2="720" y2="1080" stroke="#1c120b" stroke-width="1.5" />
+  <line x1="960" y1="860" x2="1200" y2="1080" stroke="#1c120b" stroke-width="1.5" />
+  <line x1="960" y1="860" x2="440" y2="1080" stroke="#170f09" stroke-width="1.5" />
+  <line x1="960" y1="860" x2="1480" y2="1080" stroke="#170f09" stroke-width="1.5" />
+  <line x1="960" y1="860" x2="140" y2="1080" stroke="#120c07" stroke-width="1.5" />
+  <line x1="960" y1="860" x2="1780" y2="1080" stroke="#120c07" stroke-width="1.5" />
+
+  <!-- Warm ambient light reflection on floor center -->
+  <ellipse cx="960" cy="940" rx="360" ry="50" fill="#df9c51" opacity="0.14" style="mix-blend-mode: screen;" />
+
+  <!-- Floating subtle golden atmospheric dust particles -->
+  <g fill="#fedaa5" opacity="0.4" style="mix-blend-mode: screen;">
+    <circle cx="890" cy="380" r="1.5" />
+    <circle cx="940" cy="320" r="2.0" />
+    <circle cx="1020" cy="410" r="1.2" />
+    <circle cx="970" cy="480" r="2.5" />
+    <circle cx="910" cy="540" r="1.8" />
+    <circle cx="1060" cy="510" r="2.0" />
+    <circle cx="990" cy="620" r="1.5" />
+    <circle cx="880" cy="670" r="2.2" />
+    <circle cx="1040" cy="690" r="1.6" />
+    <circle cx="950" cy="760" r="2.0" />
+    <circle cx="1120" cy="720" r="1.4" />
+    <circle cx="830" cy="740" r="1.2" />
+  </g>
+
+  <!-- Film grain / textured canvas overlay -->
+  <rect width="1920" height="1080" filter="url(#filmGrain)" opacity="0.5" />
+
+  <!-- Smooth outer perimeter chiaroscuro vignette -->
+  <rect width="1920" height="1080" fill="none" stroke="#000000" stroke-width="0" />
+</svg>
