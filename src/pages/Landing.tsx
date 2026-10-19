@@ -8,10 +8,16 @@ export default function Landing() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin')
+  const [resetSent, setResetSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const { showToast, theme, toggleTheme } = useApp()
   const navigate = useNavigate()
+
+  const switchModeTo = (newMode: 'signin' | 'signup' | 'forgot') => {
+    setMode(newMode)
+    setResetSent(false)
+  }
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,9 +30,16 @@ export default function Landing() {
         })
         if (error) throw error
         showToast('Account created — welcome to Inkwell')
-      } else {
+      } else if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+      } else if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: window.location.origin + '/reset-password',
+        })
+        if (error) throw error
+        setResetSent(true)
+        showToast('Password reset link sent! Please check your email for instructions.', 'success')
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
@@ -100,60 +113,112 @@ export default function Landing() {
         <div className={styles.right}>
           <div className={styles.authCard}>
             <div className={styles.authHeader}>
-              <h2>{mode === 'signin' ? 'Welcome back' : 'Begin your journey'}</h2>
-              <p>{mode === 'signin' ? 'Sign in to your writing studio' : 'Create your free account'}</p>
+              <h2>
+                {mode === 'signin'
+                  ? 'Welcome back'
+                  : mode === 'signup'
+                  ? 'Begin your journey'
+                  : 'Reset password'}
+              </h2>
+              <p>
+                {mode === 'signin'
+                  ? 'Sign in to your writing studio'
+                  : mode === 'signup'
+                  ? 'Create your free account'
+                  : 'Enter your email to receive recovery instructions'}
+              </p>
             </div>
 
-            <form onSubmit={handleAuth} className={styles.form}>
-              {mode === 'signup' && (
+            {mode === 'forgot' && resetSent ? (
+              <div className={styles.successBox}>
+                <span className={styles.successIcon}>✓</span>
+                <h3>Check your email</h3>
+                <p>
+                  We've sent a password reset link to <strong>{email}</strong>.
+                  Please check your inbox (and spam folder) and follow the link to reset your password.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '13px', marginTop: '16px' }}
+                  onClick={() => switchModeTo('signin')}
+                >
+                  Return to Sign In
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleAuth} className={styles.form}>
+                {mode === 'signup' && (
+                  <div className={styles.field}>
+                    <label>Full name</label>
+                    <input
+                      type="text"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
                 <div className={styles.field}>
-                  <label>Full name</label>
+                  <label>Email address</label>
                   <input
-                    type="text"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
                     required
                   />
                 </div>
-              )}
-              <div className={styles.field}>
-                <label>Email address</label>
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className={styles.field}>
-                <label>Password</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
+                {mode !== 'forgot' && (
+                  <div className={styles.field}>
+                    <div className={styles.fieldHeader}>
+                      <label>Password</label>
+                      {mode === 'signin' && (
+                        <button
+                          type="button"
+                          className={styles.forgotBtn}
+                          onClick={() => switchModeTo('forgot')}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                )}
 
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: '13px' }}
-                disabled={loading}
-              >
-                {loading ? 'Please wait…' : mode === 'signin' ? 'Enter Studio' : 'Create Account'}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', justifyContent: 'center', padding: '13px' }}
+                  disabled={loading}
+                >
+                  {loading
+                    ? 'Please wait…'
+                    : mode === 'signin'
+                    ? 'Enter Studio'
+                    : mode === 'signup'
+                    ? 'Create Account'
+                    : 'Send Recovery Link'}
+                </button>
+              </form>
+            )}
 
             <div className={styles.switchMode}>
               {mode === 'signin' ? (
-                <p>No account? <button onClick={() => setMode('signup')}>Create one free</button></p>
+                <p>No account? <button type="button" onClick={() => switchModeTo('signup')}>Create one free</button></p>
+              ) : mode === 'signup' ? (
+                <p>Already have one? <button type="button" onClick={() => switchModeTo('signin')}>Sign in</button></p>
               ) : (
-                <p>Already have one? <button onClick={() => setMode('signin')}>Sign in</button></p>
+                <p>Remember your password? <button type="button" onClick={() => switchModeTo('signin')}>Return to Sign In</button></p>
               )}
             </div>
 

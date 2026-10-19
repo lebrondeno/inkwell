@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase, upsertProfile } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
@@ -19,6 +20,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType>({} as AppContextType)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,16 +41,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
+    // If Supabase redirected to root or current path with recovery hash, ensure we route to /reset-password
+    if (window.location.hash.includes('type=recovery') && window.location.pathname !== '/reset-password') {
+      navigate('/reset-password' + window.location.hash)
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password')
+      }
+
       // Sync writer_profiles whenever user logs in (bootstraps existing users)
       if (session?.user) {
         const u = session.user
@@ -59,7 +71,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [navigate])
 
   // Apply theme to document
   useEffect(() => {

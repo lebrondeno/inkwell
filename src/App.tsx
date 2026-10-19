@@ -14,6 +14,7 @@ import PublicArticle    from './pages/PublicArticle'
 import PublicProfile    from './pages/PublicProfile'
 import Communities      from './pages/community/Communities'
 import CommunityPage    from './pages/community/CommunityPage'
+import ResetPassword    from './pages/ResetPassword'
 import PWAInstallBanner from './components/PWAInstallBanner'
 
 function AppRoutes() {
@@ -35,6 +36,7 @@ function AppRoutes() {
       <Route path="/writer/:userId"    element={<PublicProfile  />} />
       <Route path="/communities"       element={<Communities    />} />
       <Route path="/c/:slug"           element={<CommunityPage  />} />
+      <Route path="/reset-password"    element={<ResetPassword  />} />
 
       {/* Protected */}
       {user ? (
