@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl    = import.meta.env.VITE_SUPABASE_URL || ''
+const rawSupabaseUrl  = import.meta.env.VITE_SUPABASE_URL || ''
+const supabaseUrl     = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
@@ -96,12 +97,29 @@ export async function toggleReaction(articleId: string, userId: string): Promise
 
 // ── Comments ─────────────────────────────────────
 export async function getComments(articleId: string): Promise<Comment[]> {
-  const { data } = await supabase
+  // Step 1: get raw comment rows
+  const { data: comments } = await supabase
     .from('article_comments')
-    .select('*, profile:writer_profiles(full_name, avatar_url)')
+    .select('*')
     .eq('article_id', articleId)
     .order('created_at', { ascending: true })
-  return (data || []) as Comment[]
+  if (!comments || comments.length === 0) return []
+
+  // Step 2: batch-fetch matching writer_profiles by user_id
+  const userIds = [...new Set(comments.map(c => c.user_id))]
+  const { data: profiles } = await supabase
+    .from('writer_profiles')
+    .select('id, full_name, avatar_url')
+    .in('id', userIds)
+
+  const profileMap = Object.fromEntries(
+    (profiles || []).map(p => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }])
+  )
+
+  return comments.map(c => ({
+    ...c,
+    profile: profileMap[c.user_id],
+  })) as Comment[]
 }
 
 export async function addComment(articleId: string, userId: string, body: string) {
