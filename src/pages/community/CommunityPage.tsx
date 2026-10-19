@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, getCommunity, getCommunityPosts, getCommunityMembers,
   getUserCommunityRole, joinCommunity, leaveCommunity, reviewCommunityPost,
   promoteToAdmin, updateCommunity, deleteCommunity, deleteCommunityPost } from '../../lib/supabase'
-import type { Community, CommunityPost } from '../../lib/supabase'
+import type { Community, CommunityPost, CommunityMember, Article } from '../../lib/supabase'
 import { useApp } from '../../context/AppContext'
 import VerseOfDay from '../../components/VerseOfDay'
 import PublicNav from '../../components/PublicNav'
@@ -20,7 +20,7 @@ export default function CommunityPage() {
   const [community, setCommunity] = useState<Community | null>(null)
   const [posts, setPosts]         = useState<CommunityPost[]>([])
   const [pending, setPending]     = useState<CommunityPost[]>([])
-  const [members, setMembers]     = useState<any[]>([])
+  const [members, setMembers]     = useState<CommunityMember[]>([])
   const [role, setRole]           = useState<'admin' | 'member' | null>(null)
   const [tab, setTab]             = useState<Tab>('feed')
   const [loading, setLoading]     = useState(true)
@@ -28,35 +28,44 @@ export default function CommunityPage() {
 
   // Submit article modal
   const [showSubmit, setShowSubmit] = useState(false)
-  const [myArticles, setMyArticles] = useState<any[]>([])
+  const [myArticles, setMyArticles] = useState<Article[]>([])
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => { if (slug) load() }, [slug, user])
+  // Edit community modal
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', description: '', emoji: '', category: '' })
+  const [updating, setUpdating] = useState(false)
 
-  const load = async () => {
-    const c = await getCommunity(slug!)
-    if (!c) { navigate('/communities'); return }
-    setCommunity(c)
+  const load = useCallback(async () => {
+    if (!slug) return
+    try {
+      const c = await getCommunity(slug)
+      if (!c) { navigate('/communities'); return }
+      setCommunity(c)
 
-    const [approvedPosts, allMembers, { count: mc }] = await Promise.all([
-      getCommunityPosts(c.id, 'approved'),
-      getCommunityMembers(c.id),
-      supabase.from('community_members').select('*', { count: 'exact', head: true }).eq('community_id', c.id),
-    ])
-    setPosts(approvedPosts)
-    setMembers(allMembers)
-    setMemberCount(mc || 0)
+      const [approvedPosts, allMembers, { count: mc }] = await Promise.all([
+        getCommunityPosts(c.id, 'approved'),
+        getCommunityMembers(c.id),
+        supabase.from('community_members').select('*', { count: 'exact', head: true }).eq('community_id', c.id),
+      ])
+      setPosts(approvedPosts)
+      setMembers(allMembers)
+      setMemberCount(mc || 0)
 
-    if (user) {
-      const r = await getUserCommunityRole(c.id, user.id)
-      setRole(r)
-      if (r === 'admin') {
-        const pendingPosts = await getCommunityPosts(c.id, 'pending')
-        setPending(pendingPosts)
+      if (user) {
+        const r = await getUserCommunityRole(c.id, user.id)
+        setRole(r)
+        if (r === 'admin') {
+          const pendingPosts = await getCommunityPosts(c.id, 'pending')
+          setPending(pendingPosts)
+        }
       }
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }
+  }, [slug, navigate, user])
+
+  useEffect(() => { load() }, [load])
 
   const handleJoin = async () => {
     if (!user) { navigate('/'); return }
@@ -98,7 +107,7 @@ export default function CommunityPage() {
 
   const openSubmit = async () => {
     if (!user) { navigate('/'); return }
-    const { data } = await supabase.from('articles').select('id, title, cover_emoji, status')
+    const { data } = await supabase.from('articles').select('*')
       .eq('user_id', user.id).eq('status', 'published').order('updated_at', { ascending: false })
     setMyArticles(data || [])
     setShowSubmit(true)

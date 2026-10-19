@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, getCommunities } from '../../lib/supabase'
 import type { Community } from '../../lib/supabase'
@@ -20,21 +20,24 @@ export default function Communities() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', emoji: '🏛️', category: 'General' })
 
-  useEffect(() => { load() }, [])
+  const load = useCallback(async () => {
+    try {
+      const data = await getCommunities()
+      // Enrich with counts
+      const enriched = await Promise.all(data.map(async c => {
+        const [{ count: mc }, { count: pc }] = await Promise.all([
+          supabase.from('community_members').select('*', { count: 'exact', head: true }).eq('community_id', c.id),
+          supabase.from('community_posts').select('*', { count: 'exact', head: true }).eq('community_id', c.id).eq('status', 'approved'),
+        ])
+        return { ...c, member_count: mc || 0, post_count: pc || 0 }
+      }))
+      setCommunities(enriched)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  const load = async () => {
-    const data = await getCommunities()
-    // Enrich with counts
-    const enriched = await Promise.all(data.map(async c => {
-      const [{ count: mc }, { count: pc }] = await Promise.all([
-        supabase.from('community_members').select('*', { count: 'exact', head: true }).eq('community_id', c.id),
-        supabase.from('community_posts').select('*', { count: 'exact', head: true }).eq('community_id', c.id).eq('status', 'approved'),
-      ])
-      return { ...c, member_count: mc || 0, post_count: pc || 0 }
-    }))
-    setCommunities(enriched)
-    setLoading(false)
-  }
+  useEffect(() => { load() }, [load])
 
   const createCommunity = async (e: React.FormEvent) => {
     e.preventDefault()

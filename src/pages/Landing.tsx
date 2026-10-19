@@ -28,8 +28,9 @@ export default function Landing() {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
-    } catch (err: any) {
-      showToast(err.message || 'Something went wrong', 'error')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong'
+      showToast(message, 'error')
     } finally {
       setLoading(false)
     }

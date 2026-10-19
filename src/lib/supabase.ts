@@ -39,7 +39,7 @@ export interface Comment {
   user_id: string
   body: string
   created_at: string
-  profile?: { full_name: string }
+  profile?: { full_name: string; avatar_url?: string }
 }
 
 // ── Writer profiles ──────────────────────────────
@@ -157,7 +157,7 @@ export async function getUserBookmarks(userId: string): Promise<Article[]> {
     .select('article:articles(*)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-  return ((data || []).map((b: any) => b.article).filter(Boolean)) as Article[]
+  return (((data as unknown as { article: Article | null }[]) || []).map(b => b.article).filter(Boolean)) as Article[]
 }
 
 // ── Community types ───────────────────────────────
@@ -179,6 +179,7 @@ export interface CommunityMember {
   user_id: string
   role: 'admin' | 'member'
   joined_at: string
+  profile?: { id?: string; full_name?: string; avatar_url?: string } | null
 }
 
 export interface CommunityPost {
@@ -346,7 +347,8 @@ export async function fetchBibleVerse(reference: string): Promise<BibleVerse | n
   }
 }
 
-export async function fetchVerseOfDay(): Promise<BibleVerse | null> {
+export async function fetchVerseOfDay(_communityId?: string): Promise<BibleVerse | null> {
+  void _communityId
   // Expanded list of daily verses for better variety
   const verses = [
     'John 3:16','Psalm 23:1','Proverbs 3:5-6','Isaiah 40:31','Philippians 4:13',

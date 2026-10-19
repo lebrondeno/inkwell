@@ -56,10 +56,19 @@ export default function Editor() {
     ? `<p><em>Prompt: ${location.state.prompt}</em></p><p></p>`
     : ''
 
+  const loadArticle = useCallback(async (articleId: string) => {
+    const { data } = await supabase.from('articles').select('*').eq('id', articleId).single()
+    if (data) {
+      setArticle(data)
+      setTagInput(data.tags?.join(', ') || '')
+      setBibleVerseInput(data.bible_verse || '')
+    }
+  }, [])
+
   useEffect(() => {
     if (id) loadArticle(id)
     else if (initContent) setArticle(prev => ({ ...prev, content: initContent }))
-  }, [id])
+  }, [id, initContent, loadArticle])
 
   useEffect(() => {
     const text = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -68,24 +77,6 @@ export default function Editor() {
     setReadingTime(Math.ceil(words / 200))
   }, [article.content])
 
-  useEffect(() => {
-    if (!saved) {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(() => autoSave(), 1500) as unknown as ReturnType<typeof setTimeout>
-    }
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
-  }, [article, saved])
-
-  const loadArticle = async (articleId: string) => {
-    const { data } = await supabase.from('articles').select('*').eq('id', articleId).single()
-    if (data) {
-      setArticle(data)
-      setTagInput(data.tags?.join(', ') || '')
-      setBibleVerseInput(data.bible_verse || '')
-    }
-  }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const autoSave = useCallback(async () => {
     if (!article.title && !article.content) return
     setSaving(true)
@@ -102,9 +93,17 @@ export default function Editor() {
     }
     setSaving(false)
     setSaved(true)
-  }, [article, user?.id, wordCount, readingTime])
+  }, [article, user?.id, wordCount, readingTime, navigate])
 
-  const handleChange = (field: string, value: any) => { setArticle(prev => ({ ...prev, [field]: value })); setSaved(false) }
+  useEffect(() => {
+    if (!saved) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => autoSave(), 1500) as unknown as ReturnType<typeof setTimeout>
+    }
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [saved, autoSave])
+
+  const handleChange = (field: string, value: Article[keyof Article] | string) => { setArticle(prev => ({ ...prev, [field]: value } as Partial<Article>)); setSaved(false) }
   const handleTagsChange = (val: string) => { setTagInput(val); handleChange('tags', val.split(',').map(t => t.trim()).filter(Boolean)) }
 
   const runAI = async (action: string) => {

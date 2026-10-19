@@ -20,7 +20,7 @@ export default function Analytics() {
         setArticles(data || [])
         setLoading(false)
       })
-  }, [])
+  }, [user?.id])
 
   const totalWords     = articles.reduce((s, a) => s + (a.word_count || 0), 0)
   const published      = articles.filter(a => a.status === 'published')

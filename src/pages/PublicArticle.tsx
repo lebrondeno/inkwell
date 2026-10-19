@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   supabase, getWriterProfile, incrementView,
@@ -43,9 +43,8 @@ export default function PublicArticle() {
   const [bookmarked,    setBookmarked]    = useState(false)
   const [bookmarking,   setBookmarking]   = useState(false)
 
-  useEffect(() => { if (slug) loadAll() }, [slug])
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
+    if (!slug) return
     try {
       const { data, error: err } = await supabase
         .from('articles')
@@ -57,7 +56,7 @@ export default function PublicArticle() {
       if (err || !data) { setError('not_found'); setLoading(false); return }
 
       setArticle(data)
-      if (slug) incrementView(slug)
+      incrementView(slug)
 
       // Author
       const profile = await getWriterProfile(data.user_id)
@@ -66,7 +65,7 @@ export default function PublicArticle() {
         setAuthorName(name)
         setAuthorBio(profile.bio || '')
         setAuthorAvatar(profile.avatar_url || '')
-        setAuthorInitials(name.split(' ').filter(Boolean).map((n:string)=>n[0]).join('').toUpperCase().slice(0,2) || '✦')
+        setAuthorInitials(name.split(' ').filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '✦')
       }
 
       // Reactions
@@ -88,7 +87,9 @@ export default function PublicArticle() {
       }
     } catch { setError('error') }
     finally  { setLoading(false) }
-  }
+  }, [slug, user])
+
+  useEffect(() => { loadAll() }, [loadAll])
 
   const copyLink = () => {
     const themeAwareUrl = getThemeAwareUrl(window.location.origin + window.location.pathname)
@@ -355,9 +356,9 @@ export default function PublicArticle() {
             {comments.length > 0 && (
               <div className={styles.commentList}>
                 {comments.map(comment => {
-                  const cname = (comment.profile as any)?.full_name || 'Writer'
-                  const cavatar = (comment.profile as any)?.avatar_url || ''
-                  const cinit = cname.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2)
+                  const cname = comment.profile?.full_name || 'Writer'
+                  const cavatar = comment.profile?.avatar_url || ''
+                  const cinit = cname.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
                   const isOwn = user?.id === comment.user_id
                   return (
                     <div key={comment.id} className={styles.commentItem}>

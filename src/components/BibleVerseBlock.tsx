@@ -9,19 +9,37 @@ interface Props {
 }
 
 export default function BibleVerseBlock({ reference, compact = false }: Props) {
+  const [prevReference, setPrevReference] = useState(reference)
   const [verse, setVerse] = useState<BibleVerse | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => Boolean(reference?.trim()))
   const [error, setError] = useState(false)
 
-  useEffect(() => {
-    if (!reference?.trim()) { setLoading(false); return }
-    setLoading(true)
+  if (reference !== prevReference) {
+    setPrevReference(reference)
+    setLoading(Boolean(reference?.trim()))
     setError(false)
-    fetchBibleVerse(reference).then(data => {
-      if (data) setVerse(data)
-      else setError(true)
+    setVerse(null)
+  }
+
+  useEffect(() => {
+    const trimmed = reference?.trim()
+    if (!trimmed) return
+
+    let cancelled = false
+    fetchBibleVerse(trimmed).then(data => {
+      if (cancelled) return
+      if (data) {
+        setVerse(data)
+        setError(false)
+      } else {
+        setError(true)
+      }
       setLoading(false)
     })
+
+    return () => {
+      cancelled = true
+    }
   }, [reference])
 
   if (!reference?.trim()) return null

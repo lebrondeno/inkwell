@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
@@ -21,17 +21,20 @@ export default function Articles() {
   const [filter, setFilter] = useState<ArticleStatus | 'all'>('all')
   const [search, setSearch] = useState('')
 
-  useEffect(() => { fetchArticles() }, [])
+  const fetchArticles = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('articles')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('updated_at', { ascending: false })
+      setArticles(data || [])
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id])
 
-  const fetchArticles = async () => {
-    const { data } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('user_id', user?.id)
-      .order('updated_at', { ascending: false })
-    setArticles(data || [])
-    setLoading(false)
-  }
+  useEffect(() => { fetchArticles() }, [fetchArticles])
 
   const deleteArticle = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
