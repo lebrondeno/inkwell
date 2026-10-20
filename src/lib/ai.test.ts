@@ -3,6 +3,7 @@ import {
   trimContent,
   trimTail,
   DEFAULT_MAX_CHARS,
+  DEFAULT_RETRY_DELAYS,
   ARTICLE_TOO_LONG_MSG,
   escapeHtml,
   formatAiErrorMessage,
@@ -259,13 +260,109 @@ describe('AI module (src/lib/ai.ts)', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response(
           JSON.stringify({
-            error: { message: 'Quota exceeded for project', code: 429 },
+            error: { message: 'Permission denied for project', code: 403 },
           }),
-          { status: 429, headers: { 'Content-Type': 'application/json' } }
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         )
       )
 
-      await expect(callGemini('Prompt')).rejects.toThrow('Quota exceeded for project')
+      await expect(callGemini('Prompt')).rejects.toThrow('Permission denied for project')
+    })
+
+    describe('Rate limits (429) & Temporary Service Outages (503) handling', () => {
+      it('exports default exponential backoff delays [1500, 3000, 5000]', () => {
+        expect(DEFAULT_RETRY_DELAYS).toEqual([1500, 3000, 5000])
+      })
+
+      it('retries up to 3 times on status 429 and succeeds when a retry returns 200', async () => {
+        let callCount = 0
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+          callCount++
+          if (callCount <= 2) {
+            return new Response(JSON.stringify({ error: { message: 'Too Many Requests' } }), {
+              status: 429,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
+          return new Response(
+            JSON.stringify({
+              candidates: [
+                {
+                  content: { parts: [{ text: 'Success after rate limit backoff' }] },
+                  finishReason: 'STOP',
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        })
+
+        const res = await callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })
+        expect(res).toBe('Success after rate limit backoff')
+        expect(callCount).toBe(3)
+      })
+
+      it('throws user-friendly error message when all 429 retries are exhausted', async () => {
+        let callCount = 0
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+          callCount++
+          return new Response(JSON.stringify({ error: { message: 'Rate limited' } }), {
+            status: 429,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        })
+
+        await expect(callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })).rejects.toThrow(
+          'Rate limit reached. Please wait a moment before trying again.'
+        )
+        // 1 initial attempt + 3 retries = 4 total calls
+        expect(callCount).toBe(4)
+      })
+
+      it('retries up to 3 times on status 503 and succeeds when a retry returns 200', async () => {
+        let callCount = 0
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+          callCount++
+          if (callCount === 1) {
+            return new Response(JSON.stringify({ error: { message: 'Service Unavailable' } }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
+          return new Response(
+            JSON.stringify({
+              candidates: [
+                {
+                  content: { parts: [{ text: 'Success after 503 retry' }] },
+                  finishReason: 'STOP',
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        })
+
+        const res = await callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })
+        expect(res).toBe('Success after 503 retry')
+        expect(callCount).toBe(2)
+      })
+
+      it('throws user-friendly error message when all 503 retries fail', async () => {
+        let callCount = 0
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+          callCount++
+          return new Response(JSON.stringify({ error: { message: 'Service temporarily busy' } }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        })
+
+        await expect(callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })).rejects.toThrow(
+          'Gemini service is temporarily busy. Retrying...'
+        )
+        // 1 initial attempt + 3 retries = 4 total calls
+        expect(callCount).toBe(4)
+      })
     })
 
     it('throws descriptive error when prompt is blocked by safety filters', async () => {

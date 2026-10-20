@@ -2,6 +2,7 @@ export const DEFAULT_MAX_CHARS = 1500
 export const ARTICLE_TOO_LONG_MSG = '⚠️ This article is too long to rewrite as a whole.'
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash'
 export const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash-lite'
+export const DEFAULT_RETRY_DELAYS = [1500, 3000, 5000]
 
 // Trim content to avoid sending huge prompts — keeps API usage low
 export function trimContent(text: string, maxChars = DEFAULT_MAX_CHARS): string {
@@ -44,6 +45,7 @@ export function formatAiInsertion(action: string, currentContent: string, rawRes
 
 export interface CallGeminiOptions {
   allowTruncated?: boolean
+  retryDelays?: number[]
 }
 
 export async function callGemini(
@@ -106,35 +108,70 @@ export async function callGemini(
     }
   }
 
-  let res = await executeRequest(primaryModel, true)
+  let currentModel = primaryModel
+  let currentIncludeThinking = true
 
-  if (!res.ok) {
+  let res = await executeRequest(currentModel, currentIncludeThinking)
+
+  // 1. Auto-handle HTTP 400 (if model rejects thinkingConfig)
+  if (!res.ok && res.status === 400) {
     const err = await res.json().catch(() => ({}))
     const msg = (err?.error?.message as string) || ''
+    if (/thinking/i.test(msg)) {
+      currentIncludeThinking = false
+      res = await executeRequest(currentModel, currentIncludeThinking)
+    }
+  }
 
-    // If HTTP 400 occurs because the model rejects thinkingLevel minimal, retry without thinkingConfig
-    if (res.status === 400 && /thinking/i.test(msg)) {
-      res = await executeRequest(primaryModel, false)
-    } else if ((res.status === 404 || res.status === 503) && primaryModel !== FALLBACK_GEMINI_MODEL) {
-      // If HTTP 404 (model retired/not found) or 503 (high demand) occurs, fall back to flash-lite
-      const fallbackRes = await executeRequest(FALLBACK_GEMINI_MODEL, true)
-      if (fallbackRes.ok) {
-        res = fallbackRes
-      } else {
-        const fbErr = await fallbackRes.json().catch(() => ({}))
-        const fbMsg = (fbErr?.error?.message as string) || ''
-        if (fallbackRes.status === 400 && /thinking/i.test(fbMsg)) {
-          res = await executeRequest(FALLBACK_GEMINI_MODEL, false)
-        } else {
-          res = fallbackRes
+  // 2. Auto-handle HTTP 404 (model retired / not found)
+  if (!res.ok && res.status === 404 && currentModel !== FALLBACK_GEMINI_MODEL) {
+    currentModel = FALLBACK_GEMINI_MODEL
+    currentIncludeThinking = true
+    res = await executeRequest(currentModel, currentIncludeThinking)
+    if (!res.ok && res.status === 400) {
+      const fbErr = await res.json().catch(() => ({}))
+      const fbMsg = (fbErr?.error?.message as string) || ''
+      if (/thinking/i.test(fbMsg)) {
+        currentIncludeThinking = false
+        res = await executeRequest(currentModel, currentIncludeThinking)
+      }
+    }
+  }
+
+  // 3. Retry with exponential backoff on 429 (rate limit) or 503 (temporary outage / busy)
+  const retryDelays = options?.retryDelays ?? DEFAULT_RETRY_DELAYS
+  if (!res.ok && (res.status === 429 || res.status === 503)) {
+    for (const delay of retryDelays) {
+      if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+      res = await executeRequest(currentModel, currentIncludeThinking)
+      if (res.ok) {
+        break
+      }
+      // If 400 thinking error occurs on retry, handle it
+      if (res.status === 400 && currentIncludeThinking) {
+        const retryErr = await res.json().catch(() => ({}))
+        const retryMsg = (retryErr?.error?.message as string) || ''
+        if (/thinking/i.test(retryMsg)) {
+          currentIncludeThinking = false
+          res = await executeRequest(currentModel, currentIncludeThinking)
+          if (res.ok) break
         }
       }
-    } else {
-      throw new Error(msg || `AI request failed with status ${res.status}`)
+      if (res.status !== 429 && res.status !== 503) {
+        break
+      }
     }
   }
 
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error('Rate limit reached. Please wait a moment before trying again.')
+    }
+    if (res.status === 503) {
+      throw new Error('Gemini service is temporarily busy. Retrying...')
+    }
     const err = await res.json().catch(() => ({}))
     const msg = err?.error?.message || `AI request failed with status ${res.status}`
     throw new Error(msg)
