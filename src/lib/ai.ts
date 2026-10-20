@@ -1,5 +1,7 @@
 export const DEFAULT_MAX_CHARS = 1500
 export const ARTICLE_TOO_LONG_MSG = '⚠️ This article is too long to rewrite as a whole.'
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash'
+export const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash-lite'
 
 // Trim content to avoid sending huge prompts — keeps API usage low
 export function trimContent(text: string, maxChars = DEFAULT_MAX_CHARS): string {
@@ -54,26 +56,62 @@ export async function callGemini(
     throw new Error('Gemini API key not configured')
   }
 
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent'
+  const primaryModel =
+    (import.meta.env.VITE_GEMINI_MODEL as string | undefined)?.trim() || DEFAULT_GEMINI_MODEL
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: maxTokens,
-        topP: 0.9,
-        thinkingConfig: {
-          thinkingLevel: 'minimal',
-        },
+  const executeRequest = async (model: string, includeThinking: boolean) => {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+    const generationConfig: Record<string, unknown> = {
+      temperature: 0.7,
+      maxOutputTokens: maxTokens,
+      topP: 0.9,
+    }
+    if (includeThinking) {
+      generationConfig.thinkingConfig = {
+        thinkingLevel: 'minimal',
+      }
+    }
+
+    return fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
-    }),
-  })
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig,
+      }),
+    })
+  }
+
+  let res = await executeRequest(primaryModel, true)
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const msg = (err?.error?.message as string) || ''
+
+    // If HTTP 400 occurs because the model rejects thinkingLevel minimal, retry without thinkingConfig
+    if (res.status === 400 && /thinking/i.test(msg)) {
+      res = await executeRequest(primaryModel, false)
+    } else if ((res.status === 404 || res.status === 503) && primaryModel !== FALLBACK_GEMINI_MODEL) {
+      // If HTTP 404 (model retired/not found) or 503 (high demand) occurs, fall back to flash-lite
+      const fallbackRes = await executeRequest(FALLBACK_GEMINI_MODEL, true)
+      if (fallbackRes.ok) {
+        res = fallbackRes
+      } else {
+        const fbErr = await fallbackRes.json().catch(() => ({}))
+        const fbMsg = (fbErr?.error?.message as string) || ''
+        if (fallbackRes.status === 400 && /thinking/i.test(fbMsg)) {
+          res = await executeRequest(FALLBACK_GEMINI_MODEL, false)
+        } else {
+          res = fallbackRes
+        }
+      }
+    } else {
+      throw new Error(msg || `AI request failed with status ${res.status}`)
+    }
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))

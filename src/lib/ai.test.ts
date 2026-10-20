@@ -139,6 +139,79 @@ describe('AI module (src/lib/ai.ts)', () => {
       expect(capturedKey).toBe('key-two')
     })
 
+    it('auto-recovers when model rejects thinkingConfig with HTTP 400', async () => {
+      let callCount = 0
+      const capturedBodies: Array<{
+        generationConfig: {
+          thinkingConfig?: { thinkingLevel?: string }
+        }
+      }> = []
+
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+        callCount++
+        capturedBodies.push(JSON.parse(init?.body as string))
+        if (callCount === 1) {
+          return new Response(
+            JSON.stringify({
+              error: { message: 'Thinking level is not supported for this model.', code: 400 },
+            }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: { parts: [{ text: 'Recovered without thinking' }] },
+                finishReason: 'STOP',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      })
+
+      const res = await callGemini('Prompt without thinking support')
+      expect(res).toBe('Recovered without thinking')
+      expect(callCount).toBe(2)
+      expect(capturedBodies[0]?.generationConfig?.thinkingConfig?.thinkingLevel).toBe('minimal')
+      expect(capturedBodies[1]?.generationConfig?.thinkingConfig).toBeUndefined()
+    })
+
+    it('auto-recovers when model returns HTTP 404 by falling back to gemini-3.5-flash-lite', async () => {
+      let callCount = 0
+      const capturedUrls: string[] = []
+
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+        callCount++
+        capturedUrls.push(url.toString())
+        if (callCount === 1) {
+          return new Response(
+            JSON.stringify({
+              error: { message: 'models/gemini-2.0-flash is not found', code: 404 },
+            }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: { parts: [{ text: 'Recovered with fallback model' }] },
+                finishReason: 'STOP',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      })
+
+      const res = await callGemini('Prompt with retired model')
+      expect(res).toBe('Recovered with fallback model')
+      expect(callCount).toBe(2)
+      expect(capturedUrls[1]).toContain('gemini-3.5-flash-lite')
+    })
+
     it('throws meaningful error message when HTTP response is not ok', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response(
