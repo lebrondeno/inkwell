@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inkwell-v4'
+const CACHE_NAME = 'inkwell-v5'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -30,15 +30,29 @@ self.addEventListener('activate', event => {
 
 // Fetch — network first, fallback to cache
 self.addEventListener('fetch', event => {
+  // 1. Only handle GET requests
   if (event.request.method !== 'GET') return
-  // Skip supabase API and vercel analytics requests
-  const url = new URL(event.request.url)
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('vercel')) return
+
+  // 2. Ignore non-HTTP/HTTPS schemes (e.g. chrome-extension://)
+  const urlString = event.request.url
+  if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) return
+
+  const url = new URL(urlString)
+
+  // 3. Immediately bypass for cross-origin or API requests so sw.js never intercepts Gemini/Supabase
+  if (url.origin !== self.location.origin) return
+  if (
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('vercel')
+  ) {
+    return
+  }
 
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        if (response && response.status === 200) {
+        if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone()
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
         }

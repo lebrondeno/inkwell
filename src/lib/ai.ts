@@ -72,17 +72,38 @@ export async function callGemini(
       }
     }
 
-    return fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig,
-      }),
-    })
+    const doFetch = () =>
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig,
+        }),
+      })
+
+    try {
+      return await doFetch()
+    } catch (err) {
+      const isTransient =
+        err instanceof TypeError || (err instanceof Error && /fetch|network/i.test(err.message))
+
+      if (isTransient) {
+        await new Promise(resolve => setTimeout(resolve, 800))
+        try {
+          return await doFetch()
+        } catch (retryErr) {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            throw new Error('Network disconnected. Please check your internet connection and try again.')
+          }
+          throw retryErr
+        }
+      }
+      throw err
+    }
   }
 
   let res = await executeRequest(primaryModel, true)

@@ -212,6 +212,49 @@ describe('AI module (src/lib/ai.ts)', () => {
       expect(capturedUrls[1]).toContain('gemini-3.5-flash-lite')
     })
 
+    it('retries once on transient network error (TypeError / Failed to fetch) and succeeds', async () => {
+      let callCount = 0
+
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+        callCount++
+        if (callCount === 1) {
+          throw new TypeError('Failed to fetch')
+        }
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: { parts: [{ text: 'Response after network retry' }] },
+                finishReason: 'STOP',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      })
+
+      const res = await callGemini('Prompt during transient glitch')
+      expect(res).toBe('Response after network retry')
+      expect(callCount).toBe(2)
+    })
+
+    it('throws network disconnected message when fetch fails and navigator is offline', async () => {
+      const originalOnline = navigator.onLine
+      try {
+        Object.defineProperty(navigator, 'onLine', { value: false, configurable: true })
+
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+          throw new TypeError('Failed to fetch')
+        })
+
+        await expect(callGemini('Prompt while offline')).rejects.toThrow(
+          'Network disconnected. Please check your internet connection and try again.'
+        )
+      } finally {
+        Object.defineProperty(navigator, 'onLine', { value: originalOnline, configurable: true })
+      }
+    })
+
     it('throws meaningful error message when HTTP response is not ok', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response(

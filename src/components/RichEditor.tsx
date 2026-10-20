@@ -39,6 +39,8 @@ export default function RichEditor({ content, onChange, placeholder }: Props) {
         blockquote: {},
         code: {},
         codeBlock: false,
+        link: false,
+        underline: false,
       }),
       Underline,
       TextStyle,

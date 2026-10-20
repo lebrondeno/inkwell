@@ -29,6 +29,7 @@ export default function Editor() {
   const navigate = useNavigate()
   const { user, showToast } = useApp()
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const aiResultRef = useRef<HTMLDivElement | null>(null)
 
   const [article, setArticle] = useState<Partial<Article>>({
     title: '', content: '', summary: '', status: 'draft', tags: [], cover_emoji: '✦', bible_verse: '',
@@ -51,6 +52,15 @@ export default function Editor() {
   const [useArticleCtx, setUseArticleCtx]     = useState(true)
   const [titleFont, setTitleFont]             = useState(TITLE_FONTS[0].value)
   const [showTitleFonts, setShowTitleFonts]   = useState(false)
+
+  // Ensure AI result/loading card is clearly visible and scrolled into view
+  useEffect(() => {
+    if (aiLoading || aiResult) {
+      requestAnimationFrame(() => {
+        aiResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  }, [aiLoading, aiResult])
 
   // Initial content from nav state (writing prompts on dashboard)
   const initContent = location.state?.prompt
@@ -318,7 +328,7 @@ export default function Editor() {
             </div>
 
             {(aiLoading || aiResult) && (
-              <div className={styles.aiResult}>
+              <div ref={aiResultRef} className={styles.aiResult}>
                 <div className={styles.aiResultHeader}>
                   <span>✦ Result</span>
                   {aiResult && !aiLoading && (
