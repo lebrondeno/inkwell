@@ -270,11 +270,11 @@ describe('AI module (src/lib/ai.ts)', () => {
     })
 
     describe('Rate limits (429) & Temporary Service Outages (503) handling', () => {
-      it('exports default exponential backoff delays [1500, 3000, 5000]', () => {
-        expect(DEFAULT_RETRY_DELAYS).toEqual([1500, 3000, 5000])
+      it('exports default exponential backoff delays [1500, 3000]', () => {
+        expect(DEFAULT_RETRY_DELAYS).toEqual([1500, 3000])
       })
 
-      it('retries up to 3 times on status 429 and succeeds when a retry returns 200', async () => {
+      it('retries up to 2 times on status 429 and succeeds when a retry returns 200', async () => {
         let callCount = 0
         vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
           callCount++
@@ -297,7 +297,7 @@ describe('AI module (src/lib/ai.ts)', () => {
           )
         })
 
-        const res = await callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })
+        const res = await callGemini('Prompt', 500, { retryDelays: [0, 0] })
         expect(res).toBe('Success after rate limit backoff')
         expect(callCount).toBe(3)
       })
@@ -312,14 +312,14 @@ describe('AI module (src/lib/ai.ts)', () => {
           })
         })
 
-        await expect(callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })).rejects.toThrow(
+        await expect(callGemini('Prompt', 500, { retryDelays: [0, 0] })).rejects.toThrow(
           'Rate limit reached. Please wait a moment before trying again.'
         )
-        // 1 initial attempt + 3 retries = 4 total calls
-        expect(callCount).toBe(4)
+        // 1 initial attempt + 2 retries = 3 total calls
+        expect(callCount).toBe(3)
       })
 
-      it('retries up to 3 times on status 503 and succeeds when a retry returns 200', async () => {
+      it('retries up to 2 times on status 503 and succeeds when a retry returns 200', async () => {
         let callCount = 0
         vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
           callCount++
@@ -342,7 +342,7 @@ describe('AI module (src/lib/ai.ts)', () => {
           )
         })
 
-        const res = await callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })
+        const res = await callGemini('Prompt', 500, { retryDelays: [0, 0] })
         expect(res).toBe('Success after 503 retry')
         expect(callCount).toBe(2)
       })
@@ -357,11 +357,50 @@ describe('AI module (src/lib/ai.ts)', () => {
           })
         })
 
-        await expect(callGemini('Prompt', 500, { retryDelays: [0, 0, 0] })).rejects.toThrow(
+        await expect(callGemini('Prompt', 500, { retryDelays: [0, 0] })).rejects.toThrow(
           'Gemini service is temporarily busy. Retrying...'
         )
-        // 1 initial attempt + 3 retries = 4 total calls
-        expect(callCount).toBe(4)
+        // 1 initial attempt + 2 retries = 3 total calls
+        expect(callCount).toBe(3)
+      })
+
+      it('uses default retryDelays [1500, 3000] with up to 2 retries when retryDelays option is omitted', async () => {
+        const delays: number[] = []
+        const originalSetTimeout = globalThis.setTimeout
+
+        vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler: TimerHandler, timeout?: number) => {
+          if (timeout && (timeout === 1500 || timeout === 3000)) {
+            delays.push(timeout)
+          }
+          return originalSetTimeout(handler, 0)
+        })
+
+        let callCount = 0
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+          callCount++
+          if (callCount <= 2) {
+            return new Response(JSON.stringify({ error: { message: 'Resource exhausted' } }), {
+              status: 429,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
+          return new Response(
+            JSON.stringify({
+              candidates: [
+                {
+                  content: { parts: [{ text: 'Success on retry with default delays' }] },
+                  finishReason: 'STOP',
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        })
+
+        const res = await callGemini('Test default delays')
+        expect(res).toBe('Success on retry with default delays')
+        expect(delays).toEqual([1500, 3000])
+        expect(callCount).toBe(3)
       })
     })
 

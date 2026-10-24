@@ -53,14 +53,21 @@ export default function Editor() {
   const [titleFont, setTitleFont]             = useState(TITLE_FONTS[0].value)
   const [showTitleFonts, setShowTitleFonts]   = useState(false)
 
+  const scrollAiBoxIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      aiResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+    setTimeout(() => {
+      aiResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 60)
+  }, [])
+
   // Ensure AI result/loading card is clearly visible and scrolled into view
   useEffect(() => {
     if (aiLoading || aiResult) {
-      requestAnimationFrame(() => {
-        aiResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      })
+      scrollAiBoxIntoView()
     }
-  }, [aiLoading, aiResult])
+  }, [aiLoading, aiResult, scrollAiBoxIntoView])
 
   // Initial content from nav state (writing prompts on dashboard)
   const initContent = location.state?.prompt
@@ -119,12 +126,14 @@ export default function Editor() {
 
   const runAI = async (action: string) => {
     setAiAction(action); setAiLoading(true); setAiResult(''); setAiPanel(true)
+    scrollAiBoxIntoView()
     try {
       const plain = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
       const title = article.title || ''
 
       if (['improve', 'tone'].includes(action) && plain.length > DEFAULT_MAX_CHARS) {
         setAiResult(ARTICLE_TOO_LONG_MSG)
+        scrollAiBoxIntoView()
         return
       }
 
@@ -144,10 +153,15 @@ export default function Editor() {
         }
       }
       setAiResult(result)
+      scrollAiBoxIntoView()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setAiResult(formatAiErrorMessage(msg))
-    } finally { setAiLoading(false) }
+      scrollAiBoxIntoView()
+    } finally {
+      setAiLoading(false)
+      scrollAiBoxIntoView()
+    }
   }
 
   const applyAIResult = () => {

@@ -2,7 +2,7 @@ export const DEFAULT_MAX_CHARS = 1500
 export const ARTICLE_TOO_LONG_MSG = '⚠️ This article is too long to rewrite as a whole.'
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash'
 export const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash-lite'
-export const DEFAULT_RETRY_DELAYS = [1500, 3000, 5000]
+export const DEFAULT_RETRY_DELAYS = [1500, 3000]
 
 // Trim content to avoid sending huge prompts — keeps API usage low
 export function trimContent(text: string, maxChars = DEFAULT_MAX_CHARS): string {
