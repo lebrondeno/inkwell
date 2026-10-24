@@ -1,4 +1,115 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 48 46">
-  <rect width="48" height="46" fill="#0a0a0f"/>
-  <path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Espresso Gradient -->
+    <linearGradient id="bgGrad" x1="256" y1="16" x2="256" y2="496" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E1B18"/>
+      <stop offset="60%" stop-color="#171513"/>
+      <stop offset="100%" stop-color="#100F0D"/>
+    </linearGradient>
+
+    <!-- Top Soft Radial Ambience -->
+    <radialGradient id="topAura" cx="256" cy="140" r="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3A322B" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#1E1B18" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Burnished Gold Rim Gradient -->
+    <linearGradient id="goldRim" x1="80" y1="30" x2="432" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.9"/>
+      <stop offset="35%" stop-color="#D97706" stop-opacity="0.8"/>
+      <stop offset="70%" stop-color="#B45309" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#78350F" stop-opacity="0.85"/>
+    </linearGradient>
+
+    <!-- Subtle Inner Bezel -->
+    <linearGradient id="innerBezel" x1="256" y1="28" x2="256" y2="484" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FCD34D" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#D97706" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#92400E" stop-opacity="0.2"/>
+    </linearGradient>
+
+    <!-- Warm Alabaster Nib Gradient -->
+    <linearGradient id="nibAlabaster" x1="256" y1="110" x2="256" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="40%" stop-color="#FAF8F5"/>
+      <stop offset="100%" stop-color="#EBE7DF"/>
+    </linearGradient>
+
+    <!-- Nib Subtle Shadow -->
+    <filter id="nibShadow" x="-10%" y="-10%" width="120%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+
+    <!-- Gold Engraving Gradient -->
+    <linearGradient id="goldFiligree" x1="200" y1="180" x2="312" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="50%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Continuous-Curvature Squircle Base (rx="115" on 512x512) -->
+  <rect x="16" y="16" width="480" height="480" rx="115" ry="115" fill="url(#bgGrad)"/>
+  <rect x="16" y="16" width="480" height="480" rx="115" ry="115" fill="url(#topAura)"/>
+
+  <!-- Burnished Gold Border -->
+  <rect x="16" y="16" width="480" height="480" rx="115" ry="115" fill="none" stroke="url(#goldRim)" stroke-width="5"/>
+
+  <!-- Delicate Inner Bevel Line -->
+  <rect x="25" y="25" width="462" height="462" rx="106" ry="106" fill="none" stroke="url(#innerBezel)" stroke-width="1.5"/>
+
+  <!-- Classic Fountain Pen Nib -->
+  <g filter="url(#nibShadow)">
+    <!-- Main Nib Body (Warm Alabaster) -->
+    <path d="M 256,116 
+             C 253,124 235,175 210,225 
+             C 188,268 174,286 174,302
+             C 174,316 182,328 195,334
+             C 202,337 206,346 206,354
+             L 208,396
+             C 208,400 211,403 215,403
+             L 297,403
+             C 301,403 304,400 304,396
+             L 306,354
+             C 306,346 310,337 317,334
+             C 330,328 338,316 338,302
+             C 338,286 324,268 302,225
+             C 277,175 259,124 256,116 Z" 
+          fill="url(#nibAlabaster)"/>
+
+    <!-- Subtle Nib Center Spine Shading (Left tine slightly cooler, right tine brighter) -->
+    <path d="M 256,116 
+             C 253,124 235,175 210,225 
+             C 188,268 174,286 174,302
+             C 174,316 182,328 195,334
+             C 202,337 206,346 206,354
+             L 208,396
+             C 208,400 211,403 215,403
+             L 256,403
+             L 256,116 Z" 
+          fill="#000000" 
+          fill-opacity="0.04"/>
+
+    <!-- Burnished Gold Nib Collar / Grip Ring -->
+    <path d="M 205,392 L 307,392 L 305,404 L 207,404 Z" fill="url(#goldFiligree)" opacity="0.95"/>
+    <line x1="208" y1="384" x2="304" y2="384" stroke="url(#goldFiligree)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+
+    <!-- Classic Filigree Engraving on Nib Wings -->
+    <path d="M 218,270 C 228,295 240,314 246,336" fill="none" stroke="url(#goldFiligree)" stroke-width="2.5" stroke-linecap="round" opacity="0.75"/>
+    <path d="M 294,270 C 284,295 272,314 266,336" fill="none" stroke="url(#goldFiligree)" stroke-width="2.5" stroke-linecap="round" opacity="0.75"/>
+
+    <!-- Subtle Scroll Motif / Sparkle under breather -->
+    <circle cx="256" cy="308" r="3" fill="url(#goldFiligree)" opacity="0.8"/>
+    <path d="M 256,298 L 257.5,305 L 264.5,306.5 L 257.5,308 L 256,315 L 254.5,308 L 247.5,306.5 L 254.5,305 Z" fill="url(#goldFiligree)" opacity="0.75"/>
+
+    <!-- Breather Hole (Teardrop / Circle with Gold Border) -->
+    <circle cx="256" cy="254" r="13" fill="#171513" stroke="url(#goldFiligree)" stroke-width="3"/>
+
+    <!-- Gold Center Nib Slit from Tip to Breather Hole -->
+    <line x1="256" y1="116" x2="256" y2="241" stroke="#D97706" stroke-width="3" stroke-linecap="round"/>
+    <line x1="256" y1="267" x2="256" y2="350" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+
+    <!-- Nib Tip Reinforcement / Iridium Point Highlight -->
+    <ellipse cx="256" cy="118" rx="2" ry="3.5" fill="#FAF8F5"/>
+  </g>
 </svg>

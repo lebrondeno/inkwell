@@ -1,59 +1,96 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import {
+  supabase,
+  fetchVerseOfDay,
+  getWritingStreak,
+  getFollowingFeed,
+  getUserBookmarks,
+  toggleBookmark,
+} from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { formatDistanceToNow } from 'date-fns'
-import type { Article } from '../lib/supabase'
+import type { Article, BibleVerse, WritingStreak } from '../lib/supabase'
 import styles from './Dashboard.module.css'
 
 export default function Dashboard() {
-  const { user } = useApp()
+  const { user, showToast } = useApp()
   const navigate = useNavigate()
+
   const [myArticles, setMyArticles] = useState<Article[]>([])
-  const [community, setCommunity] = useState<Article[]>([])
+  const [followingArticles, setFollowingArticles] = useState<Article[]>([])
+  const [discoverArticles, setDiscoverArticles] = useState<Article[]>([])
+  const [bookmarkedArticles, setBookmarkedArticles] = useState<Article[]>([])
+
+  const [activeTab, setActiveTab] = useState<'following' | 'discover' | 'bookmarks'>('following')
+  const [verse, setVerse] = useState<BibleVerse | null>(null)
+  const [streak, setStreak] = useState<WritingStreak>({ currentStreak: 0, longestStreak: 0, lastActiveDate: null })
+
   const [loading, setLoading] = useState(true)
-  const [communityLoading, setCommunityLoading] = useState(true)
+  const [feedLoading, setFeedLoading] = useState(true)
+
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || 'Writer'
 
-  const fetchMyArticles = useCallback(async () => {
+  const loadData = useCallback(async () => {
+    if (!user?.id) return
     try {
-      const { data } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('updated_at', { ascending: false })
-        .limit(5)
-      setMyArticles(data || [])
+      const [streakData, verseData, myData, followingData, discoverData, bookmarkData] = await Promise.all([
+        getWritingStreak(user.id),
+        fetchVerseOfDay(),
+        supabase.from('articles').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(5),
+        getFollowingFeed(user.id),
+        supabase.from('articles').select('*').eq('status', 'published').neq('user_id', user.id).order('created_at', { ascending: false }).limit(6),
+        getUserBookmarks(user.id),
+      ])
+
+      setStreak(streakData)
+      setVerse(verseData)
+      setMyArticles(myData.data || [])
+      setFollowingArticles(followingData)
+      setDiscoverArticles(discoverData.data || [])
+      setBookmarkedArticles(bookmarkData)
+
+      // Default to Discover if no following articles yet
+      if (followingData.length === 0 && (discoverData.data || []).length > 0) {
+        setActiveTab('discover')
+      }
     } finally {
       setLoading(false)
-    }
-  }, [user?.id])
-
-  const fetchCommunity = useCallback(async () => {
-    try {
-      // Fetch latest published articles from ALL writers (not just current user)
-      const { data } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('status', 'published')
-        .neq('user_id', user?.id)          // exclude own articles
-        .order('created_at', { ascending: false })
-        .limit(4)
-      setCommunity(data || [])
-    } finally {
-      setCommunityLoading(false)
+      setFeedLoading(false)
     }
   }, [user?.id])
 
   useEffect(() => {
-    fetchMyArticles()
-    fetchCommunity()
-  }, [fetchMyArticles, fetchCommunity])
+    loadData()
+  }, [loadData])
+
+  const handleRemoveBookmark = async (e: React.MouseEvent, articleId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user?.id) return
+    await toggleBookmark(articleId, user.id)
+    setBookmarkedArticles(prev => prev.filter(a => a.id !== articleId))
+    showToast('Removed from Reading List')
+  }
+
+  const handleWriteReflection = () => {
+    const verseText = verse ? `"${verse.text.trim()}" — ${verse.reference}` : ''
+    const reflectionPrompt = verseText
+      ? `<p><em>Daily Reflection on ${verse?.reference}:</em></p><blockquote><p>${verse?.text.trim()}</p></blockquote><p></p>`
+      : '<p><em>Daily Reflection:</em></p><p></p>'
+
+    navigate('/app/write?prompt=reflection', {
+      state: {
+        prompt: verseText ? `Daily Reflection on ${verse?.reference}` : 'Daily Reflection',
+        initialContent: reflectionPrompt,
+        bibleVerse: verse?.reference || ''
+      }
+    })
+  }
 
   const stats = {
     total:     myArticles.length,
     published: myArticles.filter(a => a.status === 'published').length,
-    drafts:    myArticles.filter(a => a.status === 'draft').length,
     words:     myArticles.reduce((sum, a) => sum + (a.word_count || 0), 0),
     views:     myArticles.reduce((sum, a) => sum + (a.view_count || 0), 0),
   }
@@ -68,14 +105,46 @@ export default function Dashboard() {
         <div>
           <p className={styles.greeting}>{greeting}</p>
           <h1 className={styles.title}>{displayName}</h1>
-          <p className={styles.sub}>What will you write today?</p>
+          <p className={styles.sub}>Craft timeless prose, reflect deeply, and share your vision.</p>
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/app/write')}>
           ✦ New Article
         </button>
       </div>
 
-      {/* Stats */}
+      {/* Daily Reflection & Streak Card */}
+      <div className={styles.reflectionCard}>
+        <div className={styles.reflectionTop}>
+          <div className={styles.reflectionEyebrow}>
+            <span>✦</span>
+            <span>Daily Reflection & Streak</span>
+          </div>
+          <div className={styles.streakPill}>
+            <span>🔥</span>
+            <span>{streak.currentStreak} Day Streak</span>
+          </div>
+        </div>
+
+        {verse ? (
+          <>
+            <p className={styles.verseText}>"{verse.text.trim()}"</p>
+            <p className={styles.verseRef}>— {verse.reference} ({verse.translation_name || 'KJV'})</p>
+          </>
+        ) : (
+          <p className={styles.verseText}>"Commit thy works unto the Lord, and thy thoughts shall be established." — Proverbs 16:3</p>
+        )}
+
+        <div className={styles.reflectionActions}>
+          <span className={styles.reflectionPromptText}>
+            Pause, reflect, and write your thoughts for today.
+          </span>
+          <button className={styles.reflectionBtn} onClick={handleWriteReflection}>
+            ✍️ Write Today's Reflection
+          </button>
+        </div>
+      </div>
+
+      {/* Stats row */}
       <div className={styles.stats}>
         {[
           { label: 'Total Articles', value: stats.total,                 icon: '◈' },
@@ -91,7 +160,137 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent writing */}
+      {/* Main Editorial Feed Tabs */}
+      <div className={styles.section}>
+        <div className={styles.tabsBar}>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'following' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('following')}
+          >
+            <span>Following</span>
+            {followingArticles.length > 0 && <span className={styles.tabBadge}>{followingArticles.length}</span>}
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'discover' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('discover')}
+          >
+            <span>Discover</span>
+          </button>
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'bookmarks' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('bookmarks')}
+          >
+            <span>Reading List</span>
+            {bookmarkedArticles.length > 0 && <span className={styles.tabBadge}>{bookmarkedArticles.length}</span>}
+          </button>
+        </div>
+
+        {/* Tab 1: Following Feed */}
+        {activeTab === 'following' && (
+          feedLoading ? (
+            <div className={styles.feedGrid}>
+              {[1, 2, 3].map(i => <div key={i} className={`skeleton ${styles.skeletonItem}`} />)}
+            </div>
+          ) : followingArticles.length === 0 ? (
+            <div className={styles.emptyFeed}>
+              <p>You aren't following any writers with recent stories yet.</p>
+              <button className="btn btn-ghost" style={{ fontSize: '12px' }} onClick={() => setActiveTab('discover')}>
+                Explore Discover →
+              </button>
+            </div>
+          ) : (
+            <div className={styles.feedGrid}>
+              {followingArticles.map(article => (
+                <Link key={article.id} to={`/articles/${article.slug}`} className={styles.feedCard}>
+                  <div className={styles.feedCardTop}>
+                    <span className={styles.feedEmoji}>{article.cover_emoji || '✦'}</span>
+                    <span className={styles.feedAuthor}>{article.author?.full_name || 'Writer'}</span>
+                  </div>
+                  <h3 className={styles.feedTitle}>{article.title || 'Untitled'}</h3>
+                  <p className={styles.feedSummary}>{article.summary || article.content?.replace(/<[^>]*>/g, '').slice(0, 90) || '...'}</p>
+                  <div className={styles.feedFoot}>
+                    <span>{article.reading_time || 5} min read</span>
+                    <span>{formatDistanceToNow(new Date(article.created_at), { addSuffix: true })}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Tab 2: Discover Feed */}
+        {activeTab === 'discover' && (
+          feedLoading ? (
+            <div className={styles.feedGrid}>
+              {[1, 2, 3].map(i => <div key={i} className={`skeleton ${styles.skeletonItem}`} />)}
+            </div>
+          ) : discoverArticles.length === 0 ? (
+            <div className={styles.emptyFeed}>
+              <p>No community articles found yet.</p>
+            </div>
+          ) : (
+            <div className={styles.feedGrid}>
+              {discoverArticles.map(article => (
+                <Link key={article.id} to={`/articles/${article.slug}`} className={styles.feedCard}>
+                  <div className={styles.feedCardTop}>
+                    <span className={styles.feedEmoji}>{article.cover_emoji || '✦'}</span>
+                    <span className={styles.feedAuthor}>
+                      {new Date(article.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <h3 className={styles.feedTitle}>{article.title || 'Untitled'}</h3>
+                  <p className={styles.feedSummary}>{article.summary || article.content?.replace(/<[^>]*>/g, '').slice(0, 90) || '...'}</p>
+                  <div className={styles.feedFoot}>
+                    <span>{article.reading_time || 5} min read</span>
+                    <span>{(article.view_count || 0)} views</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Tab 3: Reading List (Bookmarks) */}
+        {activeTab === 'bookmarks' && (
+          feedLoading ? (
+            <div className={styles.feedGrid}>
+              {[1, 2, 3].map(i => <div key={i} className={`skeleton ${styles.skeletonItem}`} />)}
+            </div>
+          ) : bookmarkedArticles.length === 0 ? (
+            <div className={styles.emptyFeed}>
+              <p>Your Reading List is empty. Save inspiring stories to read them anytime.</p>
+              <button className="btn btn-ghost" style={{ fontSize: '12px' }} onClick={() => setActiveTab('discover')}>
+                Browse Stories →
+              </button>
+            </div>
+          ) : (
+            <div className={styles.feedGrid}>
+              {bookmarkedArticles.map(article => (
+                <Link key={article.id} to={`/articles/${article.slug}`} className={styles.feedCard}>
+                  <div className={styles.feedCardTop}>
+                    <span className={styles.feedEmoji}>{article.cover_emoji || '✦'}</span>
+                    <button
+                      className={styles.removeBookmarkBtn}
+                      onClick={e => handleRemoveBookmark(e, article.id)}
+                      title="Remove from Reading List"
+                    >
+                      🔖
+                    </button>
+                  </div>
+                  <h3 className={styles.feedTitle}>{article.title || 'Untitled'}</h3>
+                  <p className={styles.feedSummary}>{article.summary || article.content?.replace(/<[^>]*>/g, '').slice(0, 90) || '...'}</p>
+                  <div className={styles.feedFoot}>
+                    <span>{article.reading_time || 5} min read</span>
+                    <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Read story →</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Recent Writing (My Articles) */}
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2>Recent Writing</h2>
@@ -102,30 +301,27 @@ export default function Dashboard() {
 
         {loading ? (
           <div className={styles.skeletonList}>
-            {[1,2,3].map(i => <div key={i} className={`skeleton ${styles.skeletonItem}`} />)}
+            {[1, 2, 3].map(i => <div key={i} className={`skeleton ${styles.skeletonItem}`} />)}
           </div>
         ) : myArticles.length === 0 ? (
-          <div className={styles.empty}>
-            <div className={styles.emptyIcon}>✦</div>
-            <h3>Your canvas awaits</h3>
-            <p>Start writing your first article. No rules, no limits.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/app/write')}>
+          <div className={styles.emptyFeed}>
+            <p>Your canvas awaits. Start writing your first article.</p>
+            <button className="btn btn-primary" onClick={() => navigate('/app/write')} style={{ marginTop: '10px' }}>
               Begin Writing
             </button>
           </div>
         ) : (
           <div className={styles.articleList}>
-            {myArticles.map((article, i) => (
+            {myArticles.map(article => (
               <div
                 key={article.id}
                 className={styles.articleRow}
                 onClick={() => navigate(`/app/write/${article.id}`)}
-                style={{ animationDelay: `${i * 0.06}s` }}
               >
                 <div className={styles.articleEmoji}>{article.cover_emoji || '✦'}</div>
                 <div className={styles.articleInfo}>
                   <h3>{article.title || 'Untitled'}</h3>
-                  <p>{article.summary || article.content?.substring(0, 80) || 'No content yet…'}</p>
+                  <p>{article.summary || article.content?.replace(/<[^>]*>/g, '').slice(0, 80) || 'No content yet…'}</p>
                 </div>
                 <div className={styles.articleMeta}>
                   <span className={`tag tag-${article.status}`}>{article.status}</span>
@@ -149,76 +345,6 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Community section — articles from other writers */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2>✦ From the Community</h2>
-          <button className="btn btn-ghost" onClick={() => navigate('/discover')} style={{ fontSize: '12px', padding: '7px 14px' }}>
-            Discover all →
-          </button>
-        </div>
-
-        {communityLoading ? (
-          <div className={styles.communityGrid}>
-            {[1,2,3,4].map(i => <div key={i} className={`skeleton ${styles.communitySkeletonCard}`} />)}
-          </div>
-        ) : community.length === 0 ? (
-          <div className={styles.communityEmpty}>
-            <p>No community articles yet. Be the first to publish!</p>
-            <button className="btn btn-ghost" style={{ fontSize: '12px', marginTop: '10px' }} onClick={() => navigate('/app/write')}>
-              Start Writing →
-            </button>
-          </div>
-        ) : (
-          <div className={styles.communityGrid}>
-            {community.map((article, i) => (
-              <Link
-                key={article.id}
-                to={`/articles/${article.slug}`}
-                className={styles.communityCard}
-                style={{ animationDelay: `${i * 0.07}s` }}
-              >
-                <div className={styles.communityCardTop}>
-                  <span className={styles.communityEmoji}>{article.cover_emoji || '✦'}</span>
-                  <span className={styles.communityDate}>
-                    {new Date(article.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-                <h3 className={styles.communityTitle}>{article.title || 'Untitled'}</h3>
-                <div className={styles.communityFoot}>
-                  <span>{article.reading_time || 5} min read</span>
-                  {(article.view_count || 0) > 0 && <span>{article.view_count} views</span>}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Quick prompts */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2>Start from a prompt</h2>
-        </div>
-        <div className={styles.prompts}>
-          {[
-            { emoji: '🕯️', text: 'A reflection on something I learned recently' },
-            { emoji: '🌿', text: 'What peace means to me right now' },
-            { emoji: '✍️', text: 'A letter to my future self' },
-            { emoji: '🔥', text: 'The moment everything changed' },
-          ].map(p => (
-            <button
-              key={p.text}
-              className={styles.prompt}
-              onClick={() => navigate('/app/write', { state: { prompt: p.text } })}
-            >
-              <span>{p.emoji}</span>
-              <span>{p.text}</span>
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   )

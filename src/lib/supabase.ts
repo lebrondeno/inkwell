@@ -48,6 +48,9 @@ export interface Article {
   cover_emoji: string
   bible_verse?: string
   view_count?: number
+  series_id?: string
+  series_order?: number
+  author?: WriterProfile | null
   created_at: string
   updated_at: string
 }
@@ -450,4 +453,770 @@ export async function deleteCommunityPost(postId: string) {
     .from('community_posts')
     .delete()
     .eq('id', postId)
+}
+
+
+// ── Local Storage Helper ──────────────────────────
+function safeLocalStorage() {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage
+  }
+  return null
+}
+
+// ── Follows & Following Feed ──────────────────────
+export interface FollowerCount {
+  followers: number
+  following: number
+}
+
+export interface WriterFollow {
+  follower_id: string
+  following_id: string
+  email_digest?: boolean
+  created_at: string
+}
+
+export async function followWriter(followerId: string, followingId: string): Promise<{ success: boolean; error?: string }> {
+  if (!followerId || !followingId) return { success: false, error: 'Invalid user IDs' }
+  if (followerId === followingId) {
+    throw new Error('Cannot follow yourself')
+  }
+
+  // 1. Try Supabase
+  try {
+    await supabase.from('writer_follows').upsert({
+      follower_id: followerId,
+      following_id: followingId,
+      email_digest: true,
+      created_at: new Date().toISOString()
+    })
+  } catch (err) {
+    console.warn('Supabase follow error, falling back to local storage', err)
+  }
+
+  // 2. Always persist in localStorage
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      if (!stored.some(f => f.follower_id === followerId && f.following_id === followingId)) {
+        stored.push({
+          follower_id: followerId,
+          following_id: followingId,
+          email_digest: true,
+          created_at: new Date().toISOString()
+        })
+        ls.setItem('inkwell_follows', JSON.stringify(stored))
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  // 3. Create notification for followed writer
+  try {
+    const followerProfile = await getWriterProfile(followerId)
+    const followerName = followerProfile?.full_name || 'A reader'
+    await createNotification({
+      user_id: followingId,
+      actor_id: followerId,
+      type: 'new_follower',
+      title: 'New Follower',
+      message: `${followerName} started following your stories.`,
+      link: `/writer/${followerId}`
+    })
+  } catch {
+    /* ignore error */
+  }
+
+  return { success: true }
+}
+
+export async function unfollowWriter(followerId: string, followingId: string): Promise<boolean> {
+  try {
+    await supabase.from('writer_follows').delete()
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      const updated = stored.filter(f => !(f.follower_id === followerId && f.following_id === followingId))
+      ls.setItem('inkwell_follows', JSON.stringify(updated))
+    } catch {
+    /* ignore error */
+  }
+  }
+  return true
+}
+
+export async function isFollowingWriter(followerId: string, followingId: string): Promise<boolean> {
+  if (!followerId || !followingId || followerId === followingId) return false
+
+  try {
+    const { data } = await supabase.from('writer_follows')
+      .select('following_id')
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+      .single()
+    if (data) return true
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      return stored.some(f => f.follower_id === followerId && f.following_id === followingId)
+    } catch {
+    /* ignore error */
+  }
+  }
+  return false
+}
+
+export async function getFollowerCounts(userId: string): Promise<FollowerCount> {
+  let followers = 0
+  let following = 0
+
+  try {
+    const [{ count: fCount }, { count: ingCount }] = await Promise.all([
+      supabase.from('writer_follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+      supabase.from('writer_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+    ])
+    followers = fCount || 0
+    following = ingCount || 0
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      const localFollowers = stored.filter(f => f.following_id === userId).length
+      const localFollowing = stored.filter(f => f.follower_id === userId).length
+      followers = Math.max(followers, localFollowers)
+      following = Math.max(following, localFollowing)
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  return { followers, following }
+}
+
+export async function toggleFollowDigest(followerId: string, followingId: string, enabled: boolean): Promise<boolean> {
+  try {
+    await supabase.from('writer_follows')
+      .update({ email_digest: enabled })
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      const idx = stored.findIndex(f => f.follower_id === followerId && f.following_id === followingId)
+      if (idx !== -1) {
+        stored[idx].email_digest = enabled
+        ls.setItem('inkwell_follows', JSON.stringify(stored))
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+  return enabled
+}
+
+export async function getFollowingFeed(userId: string): Promise<Article[]> {
+  let followedIds: string[] = []
+  try {
+    const { data } = await supabase.from('writer_follows')
+      .select('following_id')
+      .eq('follower_id', userId)
+    if (data && data.length > 0) {
+      followedIds = data.map(d => d.following_id)
+    }
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      const localIds = stored.filter(f => f.follower_id === userId).map(f => f.following_id)
+      followedIds = [...new Set([...followedIds, ...localIds])]
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  if (followedIds.length === 0) return []
+
+  try {
+    const { data: articles } = await supabase.from('articles')
+      .select('*')
+      .in('user_id', followedIds)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (articles && articles.length > 0) {
+      const authorIds = [...new Set(articles.map(a => a.user_id))]
+      const { data: profiles } = await supabase.from('writer_profiles')
+        .select('id, full_name, avatar_url, bio')
+        .in('id', authorIds)
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+
+      return articles.map(a => ({
+        ...a,
+        author: profileMap[a.user_id] || null
+      }))
+    }
+  } catch {
+    /* ignore error */
+  }
+
+  return []
+}
+
+// ── In-App Notifications ──────────────────────────
+export type NotificationType = 'new_follower' | 'new_article' | 'mention' | 'system'
+
+export interface Notification {
+  id: string
+  user_id: string
+  actor_id?: string
+  type: NotificationType
+  title: string
+  message: string
+  link?: string
+  is_read: boolean
+  created_at: string
+  actor?: { full_name?: string; avatar_url?: string }
+}
+
+export async function createNotification(notif: Omit<Notification, 'id' | 'created_at' | 'is_read'> & { id?: string; is_read?: boolean }): Promise<Notification> {
+  const newNotif: Notification = {
+    id: notif.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    user_id: notif.user_id,
+    actor_id: notif.actor_id,
+    type: notif.type,
+    title: notif.title,
+    message: notif.message,
+    link: notif.link,
+    is_read: notif.is_read ?? false,
+    created_at: new Date().toISOString()
+  }
+
+  try {
+    await supabase.from('notifications').insert(newNotif)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_notifications_${notif.user_id}`
+      const existing = JSON.parse(ls.getItem(key) || '[]') as Notification[]
+      existing.unshift(newNotif)
+      ls.setItem(key, JSON.stringify(existing.slice(0, 50)))
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  return newNotif
+}
+
+export async function getNotifications(userId: string): Promise<Notification[]> {
+  let list: Notification[] = []
+  try {
+    const { data } = await supabase.from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30)
+    if (data && data.length > 0) {
+      list = data as Notification[]
+    }
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_notifications_${userId}`
+      const local = JSON.parse(ls.getItem(key) || '[]') as Notification[]
+      const seen = new Set(list.map(n => n.id))
+      for (const item of local) {
+        if (!seen.has(item.id)) {
+          list.push(item)
+          seen.add(item.id)
+        }
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+export async function markNotificationRead(id: string): Promise<boolean> {
+  try {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      for (let i = 0; i < ls.length; i++) {
+        const key = ls.key(i)
+        if (key && key.startsWith('inkwell_notifications_')) {
+          const list = JSON.parse(ls.getItem(key) || '[]') as Notification[]
+          let modified = false
+          for (const item of list) {
+            if (item.id === id) {
+              item.is_read = true
+              modified = true
+            }
+          }
+          if (modified) ls.setItem(key, JSON.stringify(list))
+        }
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+  return true
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<boolean> {
+  try {
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_notifications_${userId}`
+      const list = JSON.parse(ls.getItem(key) || '[]') as Notification[]
+      list.forEach(n => { n.is_read = true })
+      ls.setItem(key, JSON.stringify(list))
+    } catch {
+    /* ignore error */
+  }
+  }
+  return true
+}
+
+export async function notifyFollowersOfNewArticle(authorId: string, article: { id: string; title: string; slug: string }): Promise<void> {
+  let followers: string[] = []
+  try {
+    const { data } = await supabase.from('writer_follows').select('follower_id').eq('following_id', authorId)
+    if (data) followers = data.map(d => d.follower_id)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const stored = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      const localFollowers = stored.filter(f => f.following_id === authorId).map(f => f.follower_id)
+      followers = [...new Set([...followers, ...localFollowers])]
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  const authorProfile = await getWriterProfile(authorId)
+  const authorName = authorProfile?.full_name || 'A writer you follow'
+
+  for (const followerId of followers) {
+    if (followerId !== authorId) {
+      await createNotification({
+        user_id: followerId,
+        actor_id: authorId,
+        type: 'new_article',
+        title: 'New Story Published',
+        message: `${authorName} published "${article.title || 'Untitled'}"`,
+        link: `/articles/${article.slug}`
+      })
+    }
+  }
+}
+
+// ── Article Version History ───────────────────────
+export interface ArticleVersion {
+  id: string
+  article_id: string
+  user_id: string
+  title: string
+  content: string
+  summary?: string
+  reason: string
+  word_count: number
+  created_at: string
+}
+
+export async function saveArticleVersion(
+  articleId: string,
+  userId: string,
+  snapshot: { title: string; content: string; summary?: string; reason: string }
+): Promise<ArticleVersion> {
+  const plain = (snapshot.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const words = plain ? plain.split(' ').filter(Boolean).length : 0
+
+  const version: ArticleVersion = {
+    id: `ver_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    article_id: articleId,
+    user_id: userId,
+    title: snapshot.title || 'Untitled',
+    content: snapshot.content || '',
+    summary: snapshot.summary || '',
+    reason: snapshot.reason || 'Checkpoint',
+    word_count: words,
+    created_at: new Date().toISOString()
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_versions_${articleId}`
+      const existing = JSON.parse(ls.getItem(key) || '[]') as ArticleVersion[]
+      existing.unshift(version)
+      ls.setItem(key, JSON.stringify(existing.slice(0, 30)))
+    } catch (e) {
+      console.warn('Failed saving version to localStorage', e)
+    }
+  }
+
+  try {
+    await supabase.from('article_versions').insert(version)
+  } catch {
+    /* ignore error */
+  }
+
+  if (userId) {
+    recordWritingActivity(userId)
+  }
+
+  return version
+}
+
+export async function getArticleVersions(articleId: string): Promise<ArticleVersion[]> {
+  let list: ArticleVersion[] = []
+
+  try {
+    const { data } = await supabase.from('article_versions')
+      .select('*')
+      .eq('article_id', articleId)
+      .order('created_at', { ascending: false })
+    if (data && data.length > 0) {
+      list = data as ArticleVersion[]
+    }
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_versions_${articleId}`
+      const local = JSON.parse(ls.getItem(key) || '[]') as ArticleVersion[]
+      const seen = new Set(list.map(v => v.id))
+      for (const item of local) {
+        if (!seen.has(item.id)) {
+          list.push(item)
+          seen.add(item.id)
+        }
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+export async function restoreArticleVersion(versionId: string, articleId?: string): Promise<ArticleVersion | null> {
+  try {
+    const { data } = await supabase.from('article_versions').select('*').eq('id', versionId).single()
+    if (data) return data as ArticleVersion
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      if (articleId) {
+        const list = JSON.parse(ls.getItem(`inkwell_versions_${articleId}`) || '[]') as ArticleVersion[]
+        const found = list.find(v => v.id === versionId)
+        if (found) return found
+      } else {
+        for (let i = 0; i < ls.length; i++) {
+          const k = ls.key(i)
+          if (k && k.startsWith('inkwell_versions_')) {
+            const list = JSON.parse(ls.getItem(k) || '[]') as ArticleVersion[]
+            const found = list.find(v => v.id === versionId)
+            if (found) return found
+          }
+        }
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+  return null
+}
+
+// ── Series / Collections ──────────────────────────
+export interface Series {
+  id: string
+  user_id: string
+  title: string
+  description?: string
+  cover_emoji?: string
+  created_at: string
+  article_count?: number
+}
+
+export async function getUserSeries(userId: string): Promise<Series[]> {
+  let list: Series[] = []
+  try {
+    const { data } = await supabase.from('series').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+    if (data && data.length > 0) list = data as Series[]
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const local = JSON.parse(ls.getItem(`inkwell_series_${userId}`) || '[]') as Series[]
+      const seen = new Set(list.map(s => s.id))
+      for (const item of local) {
+        if (!seen.has(item.id)) {
+          list.push(item)
+          seen.add(item.id)
+        }
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+  return list
+}
+
+export async function createSeries(userId: string, title: string, description = '', cover_emoji = '📚'): Promise<Series> {
+  const newSeries: Series = {
+    id: `series_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    user_id: userId,
+    title: title.trim(),
+    description: description.trim(),
+    cover_emoji,
+    created_at: new Date().toISOString()
+  }
+
+  try {
+    await supabase.from('series').insert(newSeries)
+  } catch {
+    /* ignore error */
+  }
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_series_${userId}`
+      const existing = JSON.parse(ls.getItem(key) || '[]') as Series[]
+      existing.unshift(newSeries)
+      ls.setItem(key, JSON.stringify(existing))
+    } catch {
+    /* ignore error */
+  }
+  }
+  return newSeries
+}
+
+export async function getSeriesArticles(seriesId: string): Promise<Article[]> {
+  try {
+    const { data } = await supabase.from('articles')
+      .select('*')
+      .eq('series_id', seriesId)
+      .order('series_order', { ascending: true })
+    if (data && data.length > 0) return data as Article[]
+  } catch {
+    /* ignore error */
+  }
+  return []
+}
+
+export async function addArticleToSeries(articleId: string, seriesId: string, seriesOrder?: number): Promise<boolean> {
+  try {
+    await supabase.from('articles')
+      .update({ series_id: seriesId, series_order: seriesOrder ?? 1 })
+      .eq('id', articleId)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function removeArticleFromSeries(articleId: string): Promise<boolean> {
+  try {
+    await supabase.from('articles')
+      .update({ series_id: null, series_order: null })
+      .eq('id', articleId)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// ── Writing Streak & Daily Activity ───────────────
+export interface WritingStreak {
+  currentStreak: number
+  longestStreak: number
+  lastActiveDate: string | null
+}
+
+export function recordWritingActivity(userId: string): void {
+  if (!userId) return
+  const ls = safeLocalStorage()
+  if (!ls) return
+  try {
+    const key = `inkwell_streak_${userId}`
+    const today = new Date().toISOString().split('T')[0]
+    const data = JSON.parse(ls.getItem(key) || '{"dates":[]}')
+    if (!data.dates) data.dates = []
+    if (!data.dates.includes(today)) {
+      data.dates.push(today)
+      data.dates.sort()
+      ls.setItem(key, JSON.stringify(data))
+    }
+  } catch {
+    /* ignore error */
+  }
+}
+
+export async function getWritingStreak(userId: string): Promise<WritingStreak> {
+  if (!userId) {
+    return { currentStreak: 0, longestStreak: 0, lastActiveDate: null }
+  }
+
+  const activeDates = new Set<string>()
+
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      const key = `inkwell_streak_${userId}`
+      const data = JSON.parse(ls.getItem(key) || '{"dates":[]}')
+      for (const d of data.dates || []) {
+        if (typeof d === 'string') activeDates.add(d)
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  try {
+    const { data } = await supabase.from('articles').select('created_at, updated_at').eq('user_id', userId)
+    if (data) {
+      for (const row of data) {
+        if (row.created_at) activeDates.add(row.created_at.split('T')[0])
+        if (row.updated_at) activeDates.add(row.updated_at.split('T')[0])
+      }
+    }
+  } catch {
+    /* ignore error */
+  }
+
+  if (ls) {
+    try {
+      for (let i = 0; i < ls.length; i++) {
+        const k = ls.key(i)
+        if (k && k.startsWith('inkwell_versions_')) {
+          const versions = JSON.parse(ls.getItem(k) || '[]') as ArticleVersion[]
+          for (const v of versions) {
+            if (v.user_id === userId && v.created_at) {
+              activeDates.add(v.created_at.split('T')[0])
+            }
+          }
+        }
+      }
+    } catch {
+    /* ignore error */
+  }
+  }
+
+  if (activeDates.size === 0) {
+    return { currentStreak: 0, longestStreak: 0, lastActiveDate: null }
+  }
+
+  const sortedDates = Array.from(activeDates).sort()
+  const todayStr = new Date().toISOString().split('T')[0]
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+
+  let longestStreak = 0
+  let currentRun = 0
+  let prevDate: Date | null = null
+
+  for (const dateStr of sortedDates) {
+    const d = new Date(dateStr)
+    if (!prevDate) {
+      currentRun = 1
+    } else {
+      const diffDays = Math.round((d.getTime() - prevDate.getTime()) / 86400000)
+      if (diffDays === 1) {
+        currentRun++
+      } else if (diffDays > 1) {
+        currentRun = 1
+      }
+    }
+    if (currentRun > longestStreak) longestStreak = currentRun
+    prevDate = d
+  }
+
+  const lastActiveDate = sortedDates[sortedDates.length - 1]
+  let currentStreak = 0
+
+  if (lastActiveDate === todayStr || lastActiveDate === yesterday) {
+    let checkDate = new Date(lastActiveDate)
+    currentStreak = 1
+    while (true) {
+      checkDate = new Date(checkDate.getTime() - 86400000)
+      const prevStr = checkDate.toISOString().split('T')[0]
+      if (activeDates.has(prevStr)) {
+        currentStreak++
+      } else {
+        break
+      }
+    }
+  }
+
+  return {
+    currentStreak,
+    longestStreak: Math.max(longestStreak, currentStreak),
+    lastActiveDate
+  }
 }

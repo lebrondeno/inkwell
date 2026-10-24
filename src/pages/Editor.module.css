@@ -249,3 +249,21 @@
   .contentInput { font-size: 15px; }
   .emojiBtn { font-size: 26px; }
 }
+
+
+.seriesSelect {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12.5px;
+  padding: 6px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.seriesSelect:focus {
+  border-color: var(--accent);
+}

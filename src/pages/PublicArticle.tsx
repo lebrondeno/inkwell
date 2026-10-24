@@ -5,6 +5,8 @@ import {
   getReactionCount, getUserReaction, toggleReaction,
   getComments, addComment, deleteComment,
   isBookmarked, toggleBookmark,
+  isFollowingWriter, followWriter, unfollowWriter, toggleFollowDigest,
+  getSeriesArticles
 } from '../lib/supabase'
 import Footer from '../components/Footer'
 import { useApp } from '../context/AppContext'
@@ -17,31 +19,39 @@ export default function PublicArticle() {
   const navigate  = useNavigate()
   const { theme, toggleTheme, user, showToast, getThemeAwareUrl } = useApp()
 
-  const [article,       setArticle]       = useState<Article | null>(null)
-  const [loading,       setLoading]       = useState(true)
-  const [error,         setError]         = useState('')
-  const [copied,        setCopied]        = useState(false)
+  const [article,        setArticle]        = useState<Article | null>(null)
+  const [loading,        setLoading]        = useState(true)
+  const [error,          setError]          = useState('')
+  const [copied,         setCopied]         = useState(false)
 
   // Author
-  const [authorName,    setAuthorName]    = useState('Anonymous')
-  const [authorBio,     setAuthorBio]     = useState('')
-  const [authorAvatar,  setAuthorAvatar]  = useState('')
-  const [authorInitials,setAuthorInitials]= useState('?')
+  const [authorName,     setAuthorName]     = useState('Anonymous')
+  const [authorBio,      setAuthorBio]      = useState('')
+  const [authorAvatar,   setAuthorAvatar]   = useState('')
+  const [authorInitials, setAuthorInitials] = useState('?')
+
+  // Following & Digest
+  const [isFollowing,    setIsFollowing]    = useState(false)
+  const [digestEnabled,  setDigestEnabled]  = useState(true)
+  const [followLoading,  setFollowLoading]  = useState(false)
+
+  // Series
+  const [seriesArticles, setSeriesArticles] = useState<Article[]>([])
 
   // Reactions
-  const [likeCount,     setLikeCount]     = useState(0)
-  const [liked,         setLiked]         = useState(false)
-  const [liking,        setLiking]        = useState(false)
+  const [likeCount,      setLikeCount]      = useState(0)
+  const [liked,          setLiked]          = useState(false)
+  const [liking,         setLiking]         = useState(false)
 
   // Comments
-  const [comments,      setComments]      = useState<Comment[]>([])
-  const [commentText,   setCommentText]   = useState('')
-  const [submitting,    setSubmitting]    = useState(false)
-  const [commentError,  setCommentError]  = useState('')
+  const [comments,       setComments]       = useState<Comment[]>([])
+  const [commentText,    setCommentText]    = useState('')
+  const [submitting,     setSubmitting]     = useState(false)
+  const [commentError,   setCommentError]   = useState('')
 
   // Bookmarks
-  const [bookmarked,    setBookmarked]    = useState(false)
-  const [bookmarking,   setBookmarking]   = useState(false)
+  const [bookmarked,     setBookmarked]     = useState(false)
+  const [bookmarking,    setBookmarking]    = useState(false)
 
   const loadAll = useCallback(async () => {
     if (!slug) return
@@ -58,7 +68,12 @@ export default function PublicArticle() {
       setArticle(data)
       incrementView(slug)
 
-      // Author
+      // Series articles if part of a collection
+      if (data.series_id) {
+        getSeriesArticles(data.series_id).then(setSeriesArticles).catch(() => {})
+      }
+
+      // Author Profile
       const profile = await getWriterProfile(data.user_id)
       if (profile?.full_name) {
         const name = profile.full_name
@@ -68,25 +83,30 @@ export default function PublicArticle() {
         setAuthorInitials(name.split(' ').filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '✦')
       }
 
-      // Reactions
-      const [count, comments] = await Promise.all([
+      // Reactions & Comments
+      const [count, comms] = await Promise.all([
         getReactionCount(data.id),
         getComments(data.id),
       ])
       setLikeCount(count)
-      setComments(comments)
+      setComments(comms)
 
-      // User-specific: liked + bookmarked
+      // User-specific states (liked, bookmarked, following)
       if (user) {
-        const [userLiked, userBookmarked] = await Promise.all([
+        const [userLiked, userBookmarked, userFollowing] = await Promise.all([
           getUserReaction(data.id, user.id),
           isBookmarked(data.id, user.id),
+          isFollowingWriter(user.id, data.user_id)
         ])
         setLiked(userLiked)
         setBookmarked(userBookmarked)
+        setIsFollowing(userFollowing)
       }
-    } catch { setError('error') }
-    finally  { setLoading(false) }
+    } catch {
+      setError('error')
+    } finally {
+      setLoading(false)
+    }
   }, [slug, user])
 
   useEffect(() => { loadAll() }, [loadAll])
@@ -109,13 +129,45 @@ export default function PublicArticle() {
   }
 
   const handleBookmark = async () => {
-    if (!user) { showToast('Sign in to bookmark articles', 'error'); return }
+    if (!user) { showToast('Sign in to save articles to your reading list', 'error'); return }
     if (!article || bookmarking) return
     setBookmarking(true)
     const now = await toggleBookmark(article.id, user.id)
     setBookmarked(now)
-    showToast(now ? '🔖 Bookmarked!' : 'Bookmark removed')
+    showToast(now ? '🔖 Saved to Reading List!' : 'Removed from Reading List')
     setBookmarking(false)
+  }
+
+  const handleToggleFollow = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) { showToast('Sign in to follow writers', 'error'); return }
+    if (!article || user.id === article.user_id || followLoading) return
+
+    setFollowLoading(true)
+    try {
+      if (isFollowing) {
+        await unfollowWriter(user.id, article.user_id)
+        setIsFollowing(false)
+        showToast(`Unfollowed ${authorName}`)
+      } else {
+        await followWriter(user.id, article.user_id)
+        setIsFollowing(true)
+        showToast(`Now following ${authorName}!`)
+      }
+    } finally {
+      setFollowLoading(false)
+    }
+  }
+
+  const handleToggleDigest = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user || !article) return
+    const nextState = !digestEnabled
+    await toggleFollowDigest(user.id, article.user_id, nextState)
+    setDigestEnabled(nextState)
+    showToast(nextState ? '✉️ Email digest enabled' : 'Email digest disabled')
   }
 
   const handleComment = async () => {
@@ -124,29 +176,26 @@ export default function PublicArticle() {
     if (commentText.trim().length < 2) { setCommentError('Comment too short'); return }
     setSubmitting(true)
     setCommentError('')
-    
-    console.log('Attempting to save comment:', { articleId: article.id, userId: user.id, commentText })
-    
+
     const result = await addComment(article.id, user.id, commentText)
-    console.log('Comment save result:', result)
-    
-    if (result.error) { 
-      console.error('Comment error:', result.error)
-      setCommentError(`Failed to post: ${result.error}`); 
-      setSubmitting(false); 
-      return 
+    if (result.error) {
+      setCommentError(`Failed to post: ${result.error}`)
+      setSubmitting(false)
+      return
     }
-    
+
     setCommentText('')
-    const fresh = await getComments(article.id)
-    setComments(fresh)
     setSubmitting(false)
-    showToast('Comment posted!', 'success')
+    const refreshed = await getComments(article.id)
+    setComments(refreshed)
+    showToast('Comment posted')
   }
 
-  const handleDeleteComment = async (id: string) => {
-    await deleteComment(id)
-    setComments(prev => prev.filter(c => c.id !== id))
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('Delete this comment?')) return
+    await deleteComment(commentId)
+    setComments(prev => prev.filter(c => c.id !== commentId))
+    showToast('Comment deleted')
   }
 
   if (loading) {
@@ -176,9 +225,6 @@ export default function PublicArticle() {
               ? 'This article may not be published or the link is incorrect.'
               : 'Something went wrong loading this article.'}
           </p>
-          <p className={styles.errorHint}>
-            💡 <strong>If you're the author:</strong> run <code>supabase-schema.sql</code> in your Supabase SQL Editor to enable public reads of published articles.
-          </p>
           <button className="btn btn-primary" onClick={() => navigate('/discover')}>← Back to Discover</button>
         </div>
         <Footer />
@@ -187,6 +233,7 @@ export default function PublicArticle() {
   }
 
   const publishedDate = new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const isOwnArticle = user?.id === article.user_id
 
   return (
     <div className={styles.wrapper}>
@@ -195,7 +242,11 @@ export default function PublicArticle() {
         <Link to="/discover" className={styles.backBtn}>← Discover</Link>
         <span className={styles.navLogo}>✦ Inkwell</span>
         <div className={styles.navActions}>
-          <button className={`${styles.bookmarkBtn} ${bookmarked ? styles.bookmarked : ''}`} onClick={handleBookmark} title={bookmarked ? 'Remove bookmark' : 'Bookmark'}>
+          <button
+            className={`${styles.bookmarkBtn} ${bookmarked ? styles.bookmarked : ''}`}
+            onClick={handleBookmark}
+            title={bookmarked ? 'Remove from Reading List' : 'Save to Reading List'}
+          >
             {bookmarked ? '🔖' : '🏷️'}
           </button>
           <button className={styles.themeBtn} onClick={toggleTheme}>{theme === 'dark' ? '☀' : '☾'}</button>
@@ -214,23 +265,81 @@ export default function PublicArticle() {
             <h1 className={styles.title}>{article.title}</h1>
           </div>
 
-          {/* ── Author + meta ── */}
-          <Link to={`/writer/${article.user_id}`} className={styles.authorRow}>
-            {authorAvatar ? (
-              <img src={authorAvatar} alt={authorName} className={styles.authorAvatarImage} />
-            ) : (
-              <div className={styles.authorAvatar}>{authorInitials}</div>
+          {/* ── Author + Follow Row ── */}
+          <div className={styles.authorRow}>
+            <Link to={`/writer/${article.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, textDecoration: 'none' }}>
+              {authorAvatar ? (
+                <img src={authorAvatar} alt={authorName} className={styles.authorAvatarImage} />
+              ) : (
+                <div className={styles.authorAvatar}>{authorInitials}</div>
+              )}
+              <div className={styles.authorMeta}>
+                <span className={styles.authorName}>{authorName}</span>
+                <span className={styles.authorSub}>
+                  {publishedDate}
+                  {article.reading_time ? ` · ${article.reading_time} min read` : ''}
+                  {(article.view_count || 0) > 0 ? ` · ${article.view_count?.toLocaleString()} views` : ''}
+                </span>
+              </div>
+            </Link>
+
+            {!isOwnArticle && (
+              <div className={styles.authorActions}>
+                <button
+                  className={`${styles.followBtn} ${isFollowing ? styles.following : ''}`}
+                  onClick={handleToggleFollow}
+                  disabled={followLoading}
+                >
+                  {isFollowing ? '✓ Following' : '+ Follow'}
+                </button>
+                {isFollowing && (
+                  <button
+                    className={`${styles.digestBtn} ${digestEnabled ? styles.digestActive : ''}`}
+                    onClick={handleToggleDigest}
+                    title={digestEnabled ? 'Email digest enabled' : 'Enable email digest'}
+                  >
+                    ✉️
+                  </button>
+                )}
+              </div>
             )}
-            <div className={styles.authorMeta}>
-              <span className={styles.authorName}>{authorName}</span>
-              <span className={styles.authorSub}>
-                {publishedDate}
-                {article.reading_time ? ` · ${article.reading_time} min read` : ''}
-                {(article.view_count || 0) > 0 ? ` · ${article.view_count?.toLocaleString()} views` : ''}
-              </span>
+          </div>
+
+          {/* ── Series Navigation Card (if part of a series) ── */}
+          {seriesArticles.length > 0 && (
+            <div className={styles.seriesCard}>
+              <div className={styles.seriesHeader}>
+                <span className={styles.seriesBadge}>Part of Series</span>
+                <span className={styles.seriesTitle}>Collection ({seriesArticles.length} Parts)</span>
+              </div>
+              <ul className={styles.seriesList}>
+                {seriesArticles.map((sArt, index) => {
+                  const isCurrent = sArt.id === article.id
+                  return (
+                    <li key={sArt.id}>
+                      {isCurrent ? (
+                        <div className={`${styles.seriesItem} ${styles.seriesCurrent}`}>
+                          <span>
+                            <span className={styles.seriesPartNum}>Part {index + 1}:</span>
+                            {sArt.title || 'Untitled'} (Current)
+                          </span>
+                          <span>✦</span>
+                        </div>
+                      ) : (
+                        <Link to={`/articles/${sArt.slug}`} className={styles.seriesItem}>
+                          <span>
+                            <span className={styles.seriesPartNum}>Part {index + 1}:</span>
+                            {sArt.title || 'Untitled'}
+                          </span>
+                          <span>→</span>
+                        </Link>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
-            <span className={styles.profilePill}>View profile →</span>
-          </Link>
+          )}
 
           {/* ── Tags ── */}
           {article.tags && article.tags.length > 0 && (
@@ -259,7 +368,7 @@ export default function PublicArticle() {
             }}
           />
 
-          {/* ── Reactions bar ── */}
+          {/* ── Reactions & Engagement bar ── */}
           <div className={styles.reactBar}>
             <button
               className={`${styles.likeBtn} ${liked ? styles.liked : ''}`}
@@ -284,7 +393,7 @@ export default function PublicArticle() {
               className={`${styles.bookmarkBarBtn} ${bookmarked ? styles.bookmarked : ''}`}
               onClick={handleBookmark}
             >
-              {bookmarked ? '🔖 Saved' : '🏷️ Save'}
+              {bookmarked ? '🔖 In Reading List' : '🏷️ Save to Reading List'}
             </button>
           </div>
 
@@ -299,19 +408,41 @@ export default function PublicArticle() {
             <input readOnly value={window.location.href} className={styles.linkInput} onFocus={e => { e.target.select(); copyLink() }} />
           </div>
 
-          {/* ── Author card ── */}
-          <Link to={`/writer/${article.user_id}`} className={styles.authorCard}>
-            {authorAvatar ? (
-              <img src={authorAvatar} alt={authorName} className={styles.authorCardAvatarImage} />
-            ) : (
-              <div className={styles.authorCardAvatar}>{authorInitials}</div>
+          {/* ── Author Bio Card ── */}
+          <div className={styles.authorCard}>
+            <Link to={`/writer/${article.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, textDecoration: 'none' }}>
+              {authorAvatar ? (
+                <img src={authorAvatar} alt={authorName} className={styles.authorCardAvatarImage} />
+              ) : (
+                <div className={styles.authorCardAvatar}>{authorInitials}</div>
+              )}
+              <div className={styles.authorCardInfo}>
+                <p className={styles.authorCardName}>{authorName}</p>
+                <p className={styles.authorCardBio}>{authorBio || 'Inkwell writer'}</p>
+              </div>
+            </Link>
+
+            {!isOwnArticle && (
+              <div className={styles.authorActions}>
+                <button
+                  className={`${styles.followBtn} ${isFollowing ? styles.following : ''}`}
+                  onClick={handleToggleFollow}
+                  disabled={followLoading}
+                >
+                  {isFollowing ? '✓ Following' : '+ Follow'}
+                </button>
+                {isFollowing && (
+                  <button
+                    className={`${styles.digestBtn} ${digestEnabled ? styles.digestActive : ''}`}
+                    onClick={handleToggleDigest}
+                    title={digestEnabled ? 'Email digest enabled' : 'Enable email digest'}
+                  >
+                    ✉️
+                  </button>
+                )}
+              </div>
             )}
-            <div className={styles.authorCardInfo}>
-              <p className={styles.authorCardName}>{authorName}</p>
-              <p className={styles.authorCardBio}>{authorBio || 'Inkwell writer'}</p>
-            </div>
-            <span className={styles.authorCardArrow}>→</span>
-          </Link>
+          </div>
 
           {/* ── Comments ── */}
           <div className={styles.commentsSection}>
@@ -319,7 +450,6 @@ export default function PublicArticle() {
               💬 {comments.length > 0 ? `${comments.length} Comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
             </h3>
 
-            {/* Comment input */}
             {user ? (
               <div className={styles.commentForm}>
                 <textarea
@@ -352,7 +482,6 @@ export default function PublicArticle() {
               </div>
             )}
 
-            {/* Comment list */}
             {comments.length > 0 && (
               <div className={styles.commentList}>
                 {comments.map(comment => {

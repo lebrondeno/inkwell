@@ -1,9 +1,11 @@
-const CACHE_NAME = 'inkwell-v6'
+const CACHE_NAME = 'inkwell-v7'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/favicon.svg',
   '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
   '/icon-192x192.png',
   '/icon-512x512.png',
   '/icon-192x192-maskable.png',

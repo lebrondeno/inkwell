@@ -1,20 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, getNotifications, getWritingStreak } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
+import NotificationDrawer from './NotificationDrawer'
 import styles from './Sidebar.module.css'
 
 const NAV_MAIN = [
-  { icon: '◈', label: 'Dashboard',   path: '/app' },
-  { icon: '✦', label: 'My Articles', path: '/app/articles' },
-  { icon: '◉', label: 'Write',       path: '/app/write', badge: 'New' },
-  { icon: '⊡', label: 'Analytics',   path: '/app/analytics' },
-  { icon: '🏛️', label: 'Communities', path: '/app/communities' },
-  { icon: '🔖', label: 'Bookmarks',  path: '/app/bookmarks' },
-  { icon: '◎', label: 'Profile',     path: '/app/profile' },
+  { icon: '◈', label: 'Dashboard',    path: '/app' },
+  { icon: '✦', label: 'My Articles',  path: '/app/articles' },
+  { icon: '◉', label: 'Write',        path: '/app/write', badge: 'New' },
+  { icon: '📚', label: 'Series',       path: '/app/series' },
+  { icon: '🔖', label: 'Reading List', path: '/app/bookmarks' },
+  { icon: '⊡', label: 'Analytics',    path: '/app/analytics' },
+  { icon: '🏛️', label: 'Communities',  path: '/app/communities' },
+  { icon: '◎', label: 'Profile',      path: '/app/profile' },
 ]
+
 const NAV_EXTRA = [
-  { icon: '⟡', label: 'Discover',   path: '/discover' },
+  { icon: '⟡', label: 'Discover',    path: '/discover' },
 ]
 
 export default function Sidebar() {
@@ -22,6 +25,35 @@ export default function Sidebar() {
   const location = useLocation()
   const { user, showToast, theme, toggleTheme } = useApp()
   const [signingOut, setSigningOut] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [streakDays, setStreakDays] = useState(0)
+
+  useEffect(() => {
+    let mounted = true
+    const fetchStatus = async () => {
+      if (!user?.id) return
+      try {
+        const [notifs, streak] = await Promise.all([
+          getNotifications(user.id),
+          getWritingStreak(user.id)
+        ])
+        if (mounted) {
+          setUnreadCount(notifs.filter(n => !n.is_read).length)
+          setStreakDays(streak.currentStreak)
+        }
+      } catch {
+        /* ignore error during periodic poll */
+      }
+    }
+
+    void fetchStatus()
+    const timer = setInterval(() => { void fetchStatus() }, 60000)
+    return () => {
+      mounted = false
+      clearInterval(timer)
+    }
+  }, [user])
 
   const handleSignOut = async () => {
     setSigningOut(true)
@@ -30,59 +62,102 @@ export default function Sidebar() {
   }
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Writer'
-  const initials    = displayName.split(' ').map((n:string) => n[0]).join('').toUpperCase().slice(0, 2)
+  const initials    = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   const isActive    = (path: string) => path === '/app' ? location.pathname === '/app' : location.pathname.startsWith(path)
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.logo}>
-        <span className={styles.mark}>✦</span>
-        <span className={styles.name}>Inkwell</span>
-        <button className={styles.themeBtn} onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
-          {theme === 'dark' ? '☀' : '☾'}
-        </button>
-      </div>
+    <>
+      <aside className={styles.sidebar}>
+        {/* Brand Header */}
+        <div className={styles.logo}>
+          <img src="/favicon.svg" alt="Inkwell" className={styles.brandMark} />
+          <span className={styles.name}>Inkwell</span>
+        </div>
 
-      <nav className={styles.nav}>
-        <p className={styles.navLabel}>Navigation</p>
-        {NAV_MAIN.map(item => (
-          <button
-            key={item.path}
-            className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
-            onClick={() => navigate(item.path)}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span>{item.label}</span>
-            {item.badge && <span className={styles.newBadge}>{item.badge}</span>}
-          </button>
-        ))}
+        {/* Top Utility Row: Streak Badge + Notifications + Theme */}
+        <div className={styles.utilityRow}>
+          <div className={styles.streakBadge} title={`Current Writing Streak: ${streakDays} day${streakDays === 1 ? '' : 's'}`}>
+            <span>🔥</span>
+            <span>{streakDays}d streak</span>
+          </div>
 
-        <div className={styles.navDivider} />
-        <p className={styles.navLabel}>Explore</p>
-        {NAV_EXTRA.map(item => (
-          <button
-            key={item.path}
-            className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
-            onClick={() => navigate(item.path)}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+          <div className={styles.utilityActions}>
+            <button
+              className={styles.notifBtn}
+              onClick={() => setNotifOpen(true)}
+              title="Notifications"
+              aria-label="View notifications"
+            >
+              <span>🔔</span>
+              {unreadCount > 0 && (
+                <span className={styles.notifBadge}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
 
-      <div className={styles.bottom}>
-        <div className={styles.userCard}>
-          <div className={styles.avatar}>{initials}</div>
-          <div className={styles.userInfo}>
-            <p className={styles.userName}>{displayName}</p>
-            <p className={styles.userEmail}>{user?.email}</p>
+            <button
+              className={styles.themeBtn}
+              onClick={toggleTheme}
+              title="Toggle theme"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? '☀' : '☾'}
+            </button>
           </div>
         </div>
-        <button className={styles.signOut} onClick={handleSignOut} disabled={signingOut}>
-          {signingOut ? '…' : '→ Sign out'}
-        </button>
-      </div>
-    </aside>
+
+        {/* Navigation items */}
+        <nav className={styles.nav}>
+          <p className={styles.navLabel}>Navigation</p>
+          {NAV_MAIN.map(item => (
+            <button
+              key={item.path}
+              className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
+              onClick={() => navigate(item.path)}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span>{item.label}</span>
+              {item.badge && <span className={styles.newBadge}>{item.badge}</span>}
+            </button>
+          ))}
+
+          <div className={styles.navDivider} />
+          <p className={styles.navLabel}>Explore</p>
+          {NAV_EXTRA.map(item => (
+            <button
+              key={item.path}
+              className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
+              onClick={() => navigate(item.path)}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* User profile / Logout bottom card */}
+        <div className={styles.bottom}>
+          <div className={styles.userCard}>
+            <div className={styles.avatar}>{initials}</div>
+            <div className={styles.userInfo}>
+              <p className={styles.userName}>{displayName}</p>
+              <p className={styles.userEmail}>{user?.email}</p>
+            </div>
+          </div>
+          <button className={styles.signOut} onClick={handleSignOut} disabled={signingOut}>
+            {signingOut ? '…' : '→ Sign out'}
+          </button>
+        </div>
+      </aside>
+
+      {/* Notifications Drawer */}
+      <NotificationDrawer
+        open={notifOpen}
+        onClose={() => setNotifOpen(false)}
+        userId={user?.id || ''}
+        onUnreadChange={count => setUnreadCount(count)}
+      />
+    </>
   )
 }

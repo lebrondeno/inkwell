@@ -1,5 +1,5 @@
 .sidebar {
-  width: 240px;
+  width: 250px;
   min-height: 100vh;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
@@ -17,30 +17,119 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 22px 20px 22px;
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border-light);
 }
-.mark { color: var(--accent); font-size: 14px; flex-shrink: 0; }
+
+.brandMark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+  display: block;
+}
+
 .name {
   font-family: 'Playfair Display', serif;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--text-primary);
   flex: 1;
+  letter-spacing: -0.01em;
 }
+
+/* Utility bar */
+.utilityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid var(--border-light);
+  gap: 8px;
+}
+
+.streakBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 100px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
+.utilityActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notifBtn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notifBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.notifBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: #141210;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 1.5px solid var(--bg-secondary);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
 .themeBtn {
-  width: 32px; height: 32px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: 1px solid var(--border-light);
   background: var(--bg-hover);
   color: var(--accent);
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
+
 .themeBtn:hover {
   background: var(--bg-hover);
   border-color: var(--border-light);
@@ -56,6 +145,7 @@
   gap: 2px;
   overflow-y: auto;
 }
+
 .navLabel {
   font-size: 9px;
   letter-spacing: 0.14em;
@@ -63,19 +153,21 @@
   color: var(--text-muted);
   padding: 0 10px;
   margin-bottom: 6px;
-  margin-top: 2px;
+  margin-top: 4px;
   font-weight: 600;
 }
+
 .navDivider {
   height: 1px;
   background: var(--border);
   margin: 10px 0 12px;
 }
+
 .navItem {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 9px 10px;
+  padding: 9px 12px;
   border-radius: var(--radius);
   border: none;
   background: transparent;
@@ -88,25 +180,31 @@
   width: 100%;
   position: relative;
 }
+
 .navItem:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
 .navItem.active {
   background: var(--bg-hover);
   color: var(--accent);
   font-weight: 600;
 }
-.navItem.active .navIcon { color: var(--accent); }
+
+.navItem.active .navIcon {
+  color: var(--accent);
+}
 
 .navIcon {
-  font-size: 13px;
+  font-size: 14px;
   width: 18px;
   text-align: center;
   flex-shrink: 0;
   color: var(--text-muted);
   transition: color 0.15s;
 }
+
 .newBadge {
   margin-left: auto;
   font-size: 9px;
@@ -122,54 +220,79 @@
 
 /* Bottom */
 .bottom {
-  padding: 16px 14px;
+  padding: 14px 14px;
   border-top: 1px solid var(--border);
 }
+
 .userCard {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   padding: 8px;
   border-radius: var(--radius);
   transition: background 0.15s;
   cursor: default;
 }
-.userCard:hover { background: var(--bg-hover); }
+
+.userCard:hover {
+  background: var(--bg-hover);
+}
+
 .avatar {
-  width: 34px; height: 34px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   background: var(--accent-glow);
-  border: 1px solid rgba(201,169,110,0.3);
+  border: 1px solid rgba(201, 169, 110, 0.3);
   color: var(--accent);
-  font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   letter-spacing: 0.04em;
 }
-.userInfo { min-width: 0; }
+
+.userInfo {
+  min-width: 0;
+}
+
 .userName {
-  font-size: 13px; font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .userEmail {
-  font-size: 11px; color: var(--text-muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .signOut {
   width: 100%;
-  text-align: left;
-  padding: 7px 8px;
-  background: none; border: none;
-  color: var(--text-muted);
-  font-size: 12px; cursor: pointer;
-  transition: color 0.15s;
-  font-family: 'DM Sans', sans-serif;
-  letter-spacing: 0.04em;
+  padding: 8px 10px;
   border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
 }
-.signOut:hover { color: var(--red); background: rgba(224,92,92,0.06); }
 
-/* Hide on mobile */
-@media (max-width: 768px) { .sidebar { display: none; } }
+.signOut:hover {
+  background: var(--bg-hover);
+  color: var(--red);
+  border-color: rgba(224, 92, 92, 0.3);
+}

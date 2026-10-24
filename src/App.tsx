@@ -9,6 +9,7 @@ import Editor           from './pages/Editor'
 import Analytics        from './pages/Analytics'
 import Profile          from './pages/Profile'
 import Bookmarks        from './pages/Bookmarks'
+import SeriesPage       from './pages/SeriesPage'
 import PublicDiscover   from './pages/PublicDiscover'
 import PublicArticle    from './pages/PublicArticle'
 import PublicProfile    from './pages/PublicProfile'
@@ -58,6 +59,7 @@ function AppRoutes() {
             <Route path="analytics"     element={<Analytics  />} />
             <Route path="profile"       element={<Profile    />} />
             <Route path="bookmarks"     element={<Bookmarks  />} />
+            <Route path="series"        element={<SeriesPage />} />
             <Route path="communities"   element={<Communities />} />
           </Route>
           <Route path="*" element={<Navigate to="/app" replace />} />

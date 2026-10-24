@@ -1,15 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import {
+  supabase,
+  saveArticleVersion,
+  getUserSeries,
+  notifyFollowersOfNewArticle
+} from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import PublishModal from '../components/PublishModal'
 import RichEditor from '../components/RichEditor'
+import VersionHistoryDrawer from '../components/VersionHistoryDrawer'
 import {
   continueWriting, improveWriting, summarizeArticle,
   generateOutline, getReflectionPrompts, changeTone, generateTags, customPrompt,
   DEFAULT_MAX_CHARS, ARTICLE_TOO_LONG_MSG, formatAiErrorMessage, formatAiInsertion
 } from '../lib/ai'
-import type { Article } from '../lib/supabase'
+import type { Article, ArticleVersion, Series } from '../lib/supabase'
 import styles from './Editor.module.css'
 
 const EMOJIS = ['✦','✍️','🕯️','🌿','🔥','💡','🌊','⚡','🎯','📖','🌙','☀️','🦋','🌸','⭐']
@@ -42,6 +48,8 @@ export default function Editor() {
   const [aiResult, setAiResult]               = useState('')
   const [aiAction, setAiAction]               = useState('')
   const [focusMode, setFocusMode]             = useState(false)
+  const [historyOpen, setHistoryOpen]         = useState(false)
+  const [userSeries, setUserSeries]           = useState<Series[]>([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [tagInput, setTagInput]               = useState('')
   const [bibleVerseInput, setBibleVerseInput] = useState('')
@@ -62,17 +70,32 @@ export default function Editor() {
     }, 60)
   }, [])
 
-  // Ensure AI result/loading card is clearly visible and scrolled into view
   useEffect(() => {
     if (aiLoading || aiResult) {
       scrollAiBoxIntoView()
     }
   }, [aiLoading, aiResult, scrollAiBoxIntoView])
 
-  // Initial content from nav state (writing prompts on dashboard)
-  const initContent = location.state?.prompt
+  // Load user series
+  useEffect(() => {
+    if (user?.id) {
+      getUserSeries(user.id).then(setUserSeries).catch(() => {})
+    }
+  }, [user?.id])
+
+  // Check URL query params for series or prompt
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const seriesParam = searchParams.get('series')
+    if (seriesParam) {
+      setArticle(prev => ({ ...prev, series_id: seriesParam }))
+    }
+  }, [location.search])
+
+  // Initial content from nav state
+  const initContent = location.state?.initialContent || (location.state?.prompt
     ? `<p><em>Prompt: ${location.state.prompt}</em></p><p></p>`
-    : ''
+    : '')
 
   const loadArticle = useCallback(async (articleId: string) => {
     const { data } = await supabase.from('articles').select('*').eq('id', articleId).single()
@@ -84,9 +107,22 @@ export default function Editor() {
   }, [])
 
   useEffect(() => {
-    if (id) loadArticle(id)
-    else if (initContent) setArticle(prev => ({ ...prev, content: initContent }))
-  }, [id, initContent, loadArticle])
+    if (id) {
+      loadArticle(id)
+    } else {
+      if (initContent) {
+        setArticle(prev => ({
+          ...prev,
+          content: initContent,
+          title: location.state?.prompt ? String(location.state.prompt) : prev.title,
+          bible_verse: location.state?.bibleVerse || prev.bible_verse
+        }))
+        if (location.state?.bibleVerse) {
+          setBibleVerseInput(location.state.bibleVerse)
+        }
+      }
+    }
+  }, [id, initContent, loadArticle, location.state])
 
   useEffect(() => {
     const text = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -101,11 +137,27 @@ export default function Editor() {
     const payload = { ...article, user_id: user?.id, word_count: wordCount, reading_time: readingTime, updated_at: new Date().toISOString() }
     if (article.id) {
       await supabase.from('articles').update(payload).eq('id', article.id)
+      if (user?.id) {
+        saveArticleVersion(article.id, user.id, {
+          title: article.title || 'Untitled',
+          content: article.content || '',
+          summary: article.summary,
+          reason: 'Autosave'
+        }).catch(() => {})
+      }
     } else {
       const slug = (article.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now()
       const { data } = await supabase.from('articles').insert({ ...payload, slug }).select().single()
       if (data) {
         setArticle(prev => ({ ...prev, id: data.id, slug: data.slug }))
+        if (user?.id) {
+          saveArticleVersion(data.id, user.id, {
+            title: data.title || 'Untitled',
+            content: data.content || '',
+            summary: data.summary,
+            reason: 'Initial Draft'
+          }).catch(() => {})
+        }
         navigate(`/app/write/${data.id}`, { replace: true })
       }
     }
@@ -116,13 +168,20 @@ export default function Editor() {
   useEffect(() => {
     if (!saved) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(() => autoSave(), 1500) as unknown as ReturnType<typeof setTimeout>
+      saveTimerRef.current = setTimeout(() => autoSave(), 2000) as unknown as ReturnType<typeof setTimeout>
     }
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   }, [saved, autoSave])
 
-  const handleChange = (field: string, value: Article[keyof Article] | string) => { setArticle(prev => ({ ...prev, [field]: value } as Partial<Article>)); setSaved(false) }
-  const handleTagsChange = (val: string) => { setTagInput(val); handleChange('tags', val.split(',').map(t => t.trim()).filter(Boolean)) }
+  const handleChange = (field: string, value: Article[keyof Article] | string | undefined) => {
+    setArticle(prev => ({ ...prev, [field]: value } as Partial<Article>))
+    setSaved(false)
+  }
+
+  const handleTagsChange = (val: string) => {
+    setTagInput(val)
+    handleChange('tags', val.split(',').map(t => t.trim()).filter(Boolean))
+  }
 
   const runAI = async (action: string) => {
     setAiAction(action); setAiLoading(true); setAiResult(''); setAiPanel(true)
@@ -141,11 +200,13 @@ export default function Editor() {
       switch (action) {
         case 'continue':  result = await continueWriting(plain); break
         case 'improve':   result = await improveWriting(plain); break
-        case 'summarize': result = await summarizeArticle(plain); handleChange('summary', result); break
-        case 'outline':   result = await generateOutline(title || plain); break
-        case 'prompts':   result = await getReflectionPrompts(title); break
+        case 'summarize': {
+          result = await summarizeArticle(plain)
+          handleChange('summary', result); break
+        }
+        case 'outline':   result = await generateOutline(title || plain.slice(0, 80)); break
+        case 'prompts':   result = await getReflectionPrompts(title || plain.slice(0, 80)); break
         case 'tone':      result = await changeTone(plain, selectedTone); break
-        case 'custom':    result = await customPrompt(customPromptText, useArticleCtx ? plain : undefined); break
         case 'tags': {
           const tags = await generateTags(title, plain)
           setTagInput(tags.join(', ')); handleChange('tags', tags)
@@ -164,35 +225,131 @@ export default function Editor() {
     }
   }
 
-  const applyAIResult = () => {
+  const handleCustomPrompt = async () => {
+    if (!customPromptText.trim()) return
+    setAiAction('custom'); setAiLoading(true); setAiResult(''); setAiPanel(true)
+    scrollAiBoxIntoView()
+    try {
+      const plain = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+      const result = await customPrompt(customPromptText.trim(), useArticleCtx ? plain : undefined)
+      setAiResult(result)
+      scrollAiBoxIntoView()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setAiResult(formatAiErrorMessage(msg))
+      scrollAiBoxIntoView()
+    } finally {
+      setAiLoading(false)
+      scrollAiBoxIntoView()
+    }
+  }
+
+  const applyAIResult = async () => {
     if (!aiResult || aiResult.startsWith('⚠️')) return
+
+    // Critical Safety Net: Save checkpoint snapshot before AI overwrite/append
+    if (article.id && user?.id) {
+      try {
+        await saveArticleVersion(article.id, user.id, {
+          title: article.title || 'Untitled',
+          content: article.content || '',
+          summary: article.summary,
+          reason: 'Before AI Apply'
+        })
+      } catch (err) {
+        console.warn('Could not save safety snapshot before AI apply', err)
+      }
+    }
+
     const html = formatAiInsertion(aiAction, article.content || '', aiResult)
     handleChange('content', html)
-    setAiPanel(false); setAiResult(''); showToast('AI suggestion applied')
+    setAiPanel(false)
+    setAiResult('')
+    showToast('AI suggestion applied (snapshot saved to History)')
+  }
+
+  const handleManualSave = async () => {
+    await autoSave()
+    if (article.id && user?.id) {
+      await saveArticleVersion(article.id, user.id, {
+        title: article.title || 'Untitled',
+        content: article.content || '',
+        summary: article.summary,
+        reason: 'Saved checkpoint'
+      })
+      showToast('Checkpoint saved to History')
+    }
   }
 
   const publish = async () => {
     if (!article.title?.trim()) { showToast('Please add a title before publishing', 'error'); return }
     const emptyContent = !article.content?.trim() || article.content === '<p></p>' || article.content === '<p><br></p>'
     if (emptyContent) { showToast('Please write some content before publishing', 'error'); return }
+
     setSaving(true)
     const payload = { ...article, status: 'published', user_id: user?.id, word_count: wordCount, reading_time: readingTime, updated_at: new Date().toISOString() }
     let finalSlug = article.slug
+    let publishedId = article.id
+
     if (article.id) {
       await supabase.from('articles').update(payload).eq('id', article.id)
     } else {
-      finalSlug = (article.title||'untitled').toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + Date.now()
+      finalSlug = (article.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now()
       const { data } = await supabase.from('articles').insert({ ...payload, slug: finalSlug }).select().single()
-      if (data) { setArticle(prev => ({ ...prev, id: data.id, slug: data.slug, status: 'published' })); finalSlug = data.slug; navigate(`/app/write/${data.id}`, { replace: true }) }
+      if (data) {
+        publishedId = data.id
+        setArticle(prev => ({ ...prev, id: data.id, slug: data.slug, status: 'published' }))
+        finalSlug = data.slug
+        navigate(`/app/write/${data.id}`, { replace: true })
+      }
     }
+
+    // Save publish checkpoint
+    if (publishedId && user?.id) {
+      await saveArticleVersion(publishedId, user.id, {
+        title: article.title || 'Untitled',
+        content: article.content || '',
+        summary: article.summary,
+        reason: 'Saved checkpoint (Publish)'
+      }).catch(() => {})
+
+      // Notify followers of publication
+      notifyFollowersOfNewArticle(user.id, {
+        id: publishedId,
+        title: article.title || 'Untitled',
+        slug: finalSlug || article.slug || ''
+      }).catch(() => {})
+    }
+
     setArticle(prev => ({ ...prev, status: 'published', slug: finalSlug || prev.slug }))
-    setSaving(false); setSaved(true); setShowPublishModal(true)
+    setSaving(false)
+    setSaved(true)
+    setShowPublishModal(true)
+  }
+
+  const handleRestoreVersion = async (version: ArticleVersion) => {
+    handleChange('title', version.title)
+    handleChange('content', version.content)
+    if (version.summary) handleChange('summary', version.summary)
+    setSaved(false)
+
+    if (article.id && user?.id) {
+      await saveArticleVersion(article.id, user.id, {
+        title: version.title,
+        content: version.content,
+        summary: version.summary,
+        reason: 'Restored from history'
+      }).catch(() => {})
+    }
+
+    showToast(`Restored version from ${new Date(version.created_at).toLocaleTimeString()}`)
   }
 
   const statusColor = article.status === 'published' ? 'var(--green)' : article.status === 'archived' ? 'var(--red)' : 'var(--text-muted)'
 
   return (
     <div className={`${styles.wrapper} ${focusMode ? styles.focusMode : ''}`}>
+      {/* Top Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <button className={styles.toolBtn} onClick={() => navigate('/app/articles')}>← Back</button>
@@ -204,14 +361,28 @@ export default function Editor() {
             <option value="archived">Archived</option>
           </select>
         </div>
+
         <div className={styles.toolbarCenter}>
           <span className={styles.wordCount}>{wordCount} words · {readingTime} min read</span>
           <span className={styles.saveIndicator}>{saving ? '◌ Saving...' : saved ? '✓ Saved' : '● Unsaved'}</span>
         </div>
+
         <div className={styles.toolbarRight}>
-          <button className={`${styles.toolBtn} ${focusMode ? styles.active : ''}`} onClick={() => setFocusMode(!focusMode)}>⊡ Focus</button>
-          <button className={styles.toolBtn} onClick={() => { setAiPanel(!aiPanel); setAiLoading(false) }}>✦ AI</button>
-          <button className="btn btn-primary" style={{ padding: '7px 16px', fontSize: '12px' }} onClick={publish}>Publish</button>
+          <button className={`${styles.toolBtn} ${focusMode ? styles.active : ''}`} onClick={() => setFocusMode(!focusMode)}>
+            ⊡ Focus
+          </button>
+          <button className={styles.toolBtn} onClick={() => setHistoryOpen(true)} title="View version history snapshots">
+            ⏳ History
+          </button>
+          <button className={styles.toolBtn} onClick={handleManualSave} title="Save checkpoint">
+            💾 Checkpoint
+          </button>
+          <button className={styles.toolBtn} onClick={() => { setAiPanel(!aiPanel); setAiLoading(false) }}>
+            ✦ AI
+          </button>
+          <button className="btn btn-primary" style={{ padding: '7px 16px', fontSize: '12px' }} onClick={publish}>
+            Publish
+          </button>
         </div>
       </div>
 
@@ -255,6 +426,23 @@ export default function Editor() {
             </div>
           </div>
 
+          {/* Series selector */}
+          <div className={styles.metaRow} style={{ alignItems: 'center' }}>
+            <span className={styles.metaIcon}>📚</span>
+            <select
+              className={styles.seriesSelect}
+              value={article.series_id || ''}
+              onChange={e => handleChange('series_id', e.target.value || undefined)}
+            >
+              <option value="">No Series (Standalone Story)</option>
+              {userSeries.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.cover_emoji || '📚'} {s.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Tags */}
           <div className={styles.metaRow}>
             <span className={styles.metaIcon}>◈</span>
@@ -290,82 +478,127 @@ export default function Editor() {
           <RichEditor
             content={article.content || ''}
             onChange={html => handleChange('content', html)}
-            placeholder="Begin writing. Your thoughts deserve a beautiful home..."
+            placeholder="Tell your story. Format with toolbar, write freely..."
           />
         </div>
 
-        {/* AI Panel */}
+        {/* AI Assistant panel */}
         {aiPanel && (
-          <div className={styles.aiPanel}>
-            <div className={styles.aiHeader}>
-              <h3>✦ AI Assistant</h3>
-              <button onClick={() => setAiPanel(false)} className={styles.closeBtn}>✕</button>
-            </div>
-            <div className={styles.aiActions}>
-              <p className={styles.aiSectionLabel}>Writing Actions</p>
-              {[
-                { action: 'continue',  label: '→ Continue writing', desc: 'Adds more to your piece' },
-                { action: 'improve',   label: '✦ Improve writing',  desc: 'Elevates your prose' },
-                { action: 'outline',   label: '◈ Generate outline', desc: 'Structure your ideas' },
-                { action: 'summarize', label: '⊡ Auto-summarize',   desc: 'Fills summary field' },
-                { action: 'prompts',   label: '◉ Reflection prompts', desc: 'Deepen your thinking' },
-                { action: 'tags',      label: '◎ Auto-tag',         desc: 'Smart tag suggestions' },
-              ].map(item => (
-                <button key={item.action} className={`${styles.aiActionBtn} ${aiAction === item.action && aiLoading ? styles.loading : ''}`}
-                  onClick={() => runAI(item.action)} disabled={aiLoading}>
-                  <span className={styles.aiActionLabel}>{item.label}</span>
-                  <span className={styles.aiActionDesc}>{item.desc}</span>
-                </button>
-              ))}
-
-              <p className={styles.aiSectionLabel} style={{ marginTop: '16px' }}>Rewrite Tone</p>
-              <div className={styles.toneGrid}>
-                {TONES.map(t => <button key={t} className={`${styles.toneBtn} ${selectedTone === t ? styles.toneActive : ''}`} onClick={() => setSelectedTone(t)}>{t}</button>)}
+          <aside className={styles.aiPanel}>
+            <div className={styles.aiPanelHeader}>
+              <div className={styles.aiHeaderLeft}>
+                <span className={styles.sparkle}>✦</span>
+                <span className={styles.aiPanelTitle}>Editorial Assistant</span>
               </div>
-              <button className={styles.aiActionBtn} onClick={() => runAI('tone')} disabled={aiLoading}>
-                <span className={styles.aiActionLabel}>↺ Apply tone</span>
-                <span className={styles.aiActionDesc}>Rewrite in selected style</span>
-              </button>
-
-              <p className={styles.aiSectionLabel} style={{ marginTop: '16px' }}>Custom Prompt</p>
-              <textarea className={styles.customPromptInput} placeholder="Ask anything..." value={customPromptText}
-                onChange={e => setCustomPromptText(e.target.value)} rows={3} disabled={aiLoading} />
-              <label className={styles.contextToggle}>
-                <input type="checkbox" checked={useArticleCtx} onChange={e => setUseArticleCtx(e.target.checked)} />
-                <span>Include article as context</span>
-              </label>
-              <button className={styles.aiActionBtn} onClick={() => { if (customPromptText.trim()) runAI('custom') }}
-                disabled={aiLoading || !customPromptText.trim()} style={{ marginTop: '6px' }}>
-                <span className={styles.aiActionLabel}>◉ Run prompt</span>
-                <span className={styles.aiActionDesc}>Send your custom instruction</span>
-              </button>
+              <button className={styles.closeAi} onClick={() => setAiPanel(false)}>×</button>
             </div>
 
-            {(aiLoading || aiResult) && (
-              <div ref={aiResultRef} className={styles.aiResult}>
-                <div className={styles.aiResultHeader}>
-                  <span>✦ Result</span>
-                  {aiResult && !aiLoading && (
-                    <div style={{ display:'flex', gap:'8px' }}>
-                      {['continue','improve','tone'].includes(aiAction) && !aiResult.startsWith('⚠️') && (
-                        <button className="btn btn-primary" style={{ fontSize:'11px', padding:'5px 12px' }} onClick={applyAIResult}>Apply</button>
-                      )}
-                      <button className={styles.closeBtn} onClick={() => setAiResult('')}>✕</button>
+            <div className={styles.aiScrollArea}>
+              <div className={styles.aiActions}>
+                <p className={styles.aiGroupLabel}>Compose & Polish</p>
+                <button className={styles.aiActionBtn} onClick={() => runAI('continue')} disabled={aiLoading}>
+                  <span>✍️</span><span>Continue Writing</span>
+                </button>
+                <button className={styles.aiActionBtn} onClick={() => runAI('improve')} disabled={aiLoading}>
+                  <span>✦</span><span>Improve & Polish</span>
+                </button>
+
+                <p className={styles.aiGroupLabel}>Tone & Style</p>
+                <div className={styles.toneSelector}>
+                  <select value={selectedTone} onChange={e => setSelectedTone(e.target.value)} className={styles.toneSelect}>
+                    {TONES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                  </select>
+                  <button className={styles.aiActionBtnSmall} onClick={() => runAI('tone')} disabled={aiLoading}>
+                    Apply Tone
+                  </button>
+                </div>
+
+                <p className={styles.aiGroupLabel}>Structure & Metadata</p>
+                <button className={styles.aiActionBtn} onClick={() => runAI('summarize')} disabled={aiLoading}>
+                  <span>⊡</span><span>Auto-summarize</span>
+                </button>
+                <button className={styles.aiActionBtn} onClick={() => runAI('outline')} disabled={aiLoading}>
+                  <span>◈</span><span>Generate Outline</span>
+                </button>
+                <button className={styles.aiActionBtn} onClick={() => runAI('tags')} disabled={aiLoading}>
+                  <span>🏷️</span><span>Suggest Tags</span>
+                </button>
+                <button className={styles.aiActionBtn} onClick={() => runAI('prompts')} disabled={aiLoading}>
+                  <span>💡</span><span>Reflection Prompts</span>
+                </button>
+
+                <p className={styles.aiGroupLabel}>Custom Instruction</p>
+                <div className={styles.customPromptWrap}>
+                  <textarea
+                    className={styles.customPromptInput}
+                    placeholder="Ask Gemini to critique, rephrase, expand..."
+                    value={customPromptText}
+                    onChange={e => setCustomPromptText(e.target.value)}
+                    rows={2}
+                    disabled={aiLoading}
+                  />
+                  <div className={styles.customPromptOptions}>
+                    <label className={styles.contextToggle}>
+                      <input
+                        type="checkbox"
+                        checked={useArticleCtx}
+                        onChange={e => setUseArticleCtx(e.target.checked)}
+                      />
+                      <span>Include article as context</span>
+                    </label>
+                    <button
+                      className={styles.aiActionBtnSmall}
+                      onClick={handleCustomPrompt}
+                      disabled={aiLoading || !customPromptText.trim()}
+                    >
+                      Ask AI →
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {(aiLoading || aiResult) && (
+                <div ref={aiResultRef} className={styles.aiResult}>
+                  <div className={styles.aiResultHeader}>
+                    <span>✦ Result</span>
+                    {aiResult && !aiLoading && (
+                      <div className={styles.aiResultBtns}>
+                        {['continue', 'improve', 'tone'].includes(aiAction) && (
+                          <button className={styles.applyBtn} onClick={applyAIResult}>Apply</button>
+                        )}
+                        <button className={styles.copyBtn} onClick={() => { navigator.clipboard.writeText(aiResult); showToast('Copied to clipboard') }}>Copy</button>
+                      </div>
+                    )}
+                  </div>
+                  {aiLoading ? (
+                    <div className={styles.aiLoadingText}>
+                      <span className={styles.aiSpin}>✦</span> Generating thoughtful response...
                     </div>
+                  ) : (
+                    <div className={styles.aiResultText}>{aiResult}</div>
                   )}
                 </div>
-                {aiLoading
-                  ? <div className={styles.aiThinking}><span className={styles.pulse}>✦</span><span>Thinking...</span></div>
-                  : <p className={styles.aiText}>{aiResult}</p>
-                }
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </aside>
         )}
       </div>
 
-      {showPublishModal && article.slug && (
-        <PublishModal articleSlug={article.slug} articleTitle={article.title || 'Untitled'} onClose={() => setShowPublishModal(false)} />
+      {/* Version History Drawer */}
+      <VersionHistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        articleId={article.id || ''}
+        onRestore={handleRestoreVersion}
+      />
+
+      {/* Publish Modal */}
+      {showPublishModal && (
+        <PublishModal
+          articleSlug={article.slug || ''}
+          articleTitle={article.title || 'Untitled'}
+          onClose={() => setShowPublishModal(false)}
+        />
       )}
     </div>
   )
