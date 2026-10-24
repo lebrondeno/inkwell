@@ -190,7 +190,12 @@
 .editActions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
 @media (max-width: 768px) {
-  .page { padding: 20px 16px; }
+  .page { padding: 20px 16px 32px; }
+  .heroName { font-size: 22px; }
+  .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .tab { white-space: nowrap; flex-shrink: 0; }
+  .memberRow { flex-wrap: wrap; gap: 10px; }
+  .memberActions { width: 100%; justify-content: flex-end; }
   .hero { flex-direction: column; gap: 16px; }
   .heroActions { flex-direction: row; align-items: center; width: 100%; flex-wrap: wrap; }
   .queueCard { flex-direction: column; }

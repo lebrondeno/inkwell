@@ -211,6 +211,9 @@
   .profilePill { display: none; }
   .reactBar { padding: 12px 14px; gap: 8px; }
   .bookmarkBarBtn { margin-left: 0; }
+  .authorRow { flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .authorCard { flex-wrap: wrap; gap: 12px; padding: 16px; }
+  .seriesCard { padding: 16px; }
 }
 @media (max-width: 480px) {
   .topNav { padding: 0 12px; }

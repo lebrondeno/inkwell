@@ -2,61 +2,176 @@
 .topBar {
   display: none;
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 56px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 12px;
   z-index: 200;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
-.logo {
-  display: flex; align-items: center; gap: 7px;
-  font-family: 'Playfair Display', serif;
-  font-size: 17px; font-weight: 700; color: var(--accent);
-}
-.logoMark { font-size: 13px; }
-
-.topActions {
-  display: flex; align-items: center; gap: 8px;
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.discoverLink {
-  background: var(--bg-hover);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-size: 11px; font-weight: 600;
-  padding: 5px 10px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  letter-spacing: 0.03em;
-  transition: all 0.2s;
-}
-.discoverLink:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
-
-.themeToggle {
-  width: 36px; height: 36px;
+.menuToggleBtn {
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   border: 1px solid var(--border-light);
   background: var(--bg-hover);
-  color: var(--accent); font-size: 17px;
-  cursor: pointer; transition: all 0.2s;
-  display: flex; align-items: center; justify-content: center;
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  line-height: 1;
 }
-.themeToggle:hover { background: var(--accent-glow); border-color: var(--accent); }
-.themeToggle:active { transform: scale(0.92); }
+
+.menuToggleBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menuToggleBtn:active {
+  transform: scale(0.94);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.brandMark {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: block;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.brandName {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.streakPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  user-select: none;
+}
+
+.streakFlame {
+  font-size: 12px;
+}
+
+.notifBtn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notifBtn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.notifBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: var(--accent);
+  color: #141210;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 1.5px solid var(--bg-secondary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.themeToggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-hover);
+  color: var(--accent);
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.themeToggle:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.themeToggle:active {
+  transform: scale(0.92);
+}
 
 /* ── Bottom Nav ── */
 .bottomNav {
   display: none;
   position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 64px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(58px + env(safe-area-inset-bottom, 0px));
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
   flex-direction: row;
@@ -64,40 +179,64 @@
   align-items: center;
   z-index: 200;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .navItem {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 3px; flex: 1; height: 100%;
-  background: none; border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
   color: var(--text-muted);
-  cursor: pointer; transition: all 0.15s ease;
+  cursor: pointer;
+  transition: all 0.15s ease;
   font-family: 'DM Sans', sans-serif;
-  position: relative; padding: 0;
+  position: relative;
+  padding: 0;
 }
-.navItem:hover { color: var(--text-primary); }
-.navItem.active { color: var(--accent); }
+
+.navItem:hover {
+  color: var(--text-primary);
+}
+
+.navItem.active {
+  color: var(--accent);
+}
 
 .icon {
-  font-size: 18px; display: block;
-  transition: transform 0.2s ease;
+  font-size: 17px;
+  display: block;
+  transition: transform 0.15s ease;
 }
-.navItem.active .icon { transform: translateY(-2px); }
+
+.navItem.active .icon {
+  transform: translateY(-1px);
+}
 
 .label {
-  display: block; font-size: 9px;
-  text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .activeDot {
-  position: absolute; bottom: 7px;
-  width: 4px; height: 4px; border-radius: 50%;
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
   background: var(--accent);
   animation: dotPop 0.2s ease both;
 }
+
 @keyframes dotPop {
   from { transform: scale(0); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
@@ -105,6 +244,6 @@
 
 /* Show on mobile */
 @media (max-width: 768px) {
-  .topBar   { display: flex; }
+  .topBar    { display: flex; }
   .bottomNav { display: flex; }
 }

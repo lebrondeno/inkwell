@@ -472,3 +472,116 @@
   border-radius: var(--radius);
   margin-bottom: 8px;
 }
+
+/* ── Mobile responsive (<= 768px) ── */
+@media (max-width: 768px) {
+  .page {
+    padding: 20px 16px 32px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: 24px;
+    gap: 12px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .reflectionCard {
+    padding: 18px 16px;
+    margin-bottom: 24px;
+  }
+
+  .reflectionTop {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .reflectionActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .reflectionBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .statCard {
+    padding: 14px 12px;
+  }
+
+  .statValue {
+    font-size: 22px;
+  }
+
+  .tabsBar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabsBar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabBtn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 7px 12px 9px;
+    font-size: 13px;
+  }
+
+  .feedGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .articleRow {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .viewLive {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 16px 12px 28px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .verseText {
+    font-size: 15px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .statValue {
+    font-size: 20px;
+  }
+}
+

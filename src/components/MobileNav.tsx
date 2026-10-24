@@ -2,36 +2,81 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import styles from './MobileNav.module.css'
 
+interface MobileNavProps {
+  onToggleMenu?: () => void
+  onOpenNotifications?: () => void
+  unreadCount?: number
+  streakDays?: number
+}
+
 const NAV_ITEMS = [
   { icon: '◈', label: 'Home',     path: '/app' },
   { icon: '✦', label: 'Articles', path: '/app/articles' },
   { icon: '◉', label: 'Write',    path: '/app/write' },
-  { icon: '⊡', label: 'Stats',    path: '/app/analytics' },
+  { icon: '📚', label: 'Series',   path: '/app/series' },
   { icon: '🏛️', label: 'Groups',   path: '/app/communities' },
   { icon: '◎', label: 'Profile',  path: '/app/profile' },
 ]
 
-export default function MobileNav() {
-  const navigate  = useNavigate()
-  const location  = useLocation()
+export default function MobileNav({
+  onToggleMenu,
+  onOpenNotifications,
+  unreadCount = 0,
+  streakDays = 0,
+}: MobileNavProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const { theme, toggleTheme } = useApp()
 
   return (
     <>
       {/* ── Top Bar ── */}
-      <div className={styles.topBar}>
-        <div className={styles.logo}>
-          <span className={styles.logoMark}>✦</span>
-          <span>Inkwell</span>
-        </div>
-        <div className={styles.topActions}>
+      <header className={styles.topBar}>
+        <div className={styles.topBarLeft}>
           <button
-            className={styles.discoverLink}
-            onClick={() => navigate('/discover')}
-            title="Discover articles"
+            className={styles.menuToggleBtn}
+            onClick={onToggleMenu}
+            aria-label="Open menu"
+            title="Menu"
           >
-            ⟡ Discover
+            ☰
           </button>
+          <div
+            className={styles.brand}
+            onClick={() => navigate('/app')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter') navigate('/app') }}
+            title="Inkwell Dashboard"
+          >
+            <img src="/favicon.svg" alt="Inkwell" className={styles.brandMark} />
+            <span className={styles.brandName}>Inkwell</span>
+          </div>
+        </div>
+
+        <div className={styles.topBarRight}>
+          <div
+            className={styles.streakPill}
+            title={`Writing Streak: ${streakDays} day${streakDays === 1 ? '' : 's'}`}
+          >
+            <span className={styles.streakFlame}>🔥</span>
+            <span>{streakDays}d</span>
+          </div>
+
+          <button
+            className={styles.notifBtn}
+            onClick={onOpenNotifications}
+            aria-label="View notifications"
+            title="Notifications"
+          >
+            <span className={styles.notifIcon}>🔔</span>
+            {unreadCount > 0 && (
+              <span className={styles.notifBadge}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
           <button
             className={styles.themeToggle}
             onClick={toggleTheme}
@@ -41,7 +86,7 @@ export default function MobileNav() {
             {theme === 'dark' ? '☀' : '☾'}
           </button>
         </div>
-      </div>
+      </header>
 
       {/* ── Bottom Nav ── */}
       <nav className={styles.bottomNav} role="navigation" aria-label="Main navigation">

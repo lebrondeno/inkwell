@@ -5,6 +5,14 @@ import { useApp } from '../context/AppContext'
 import NotificationDrawer from './NotificationDrawer'
 import styles from './Sidebar.module.css'
 
+interface SidebarProps {
+  mobileOpen?: boolean
+  onClose?: () => void
+  onOpenNotifications?: () => void
+  unreadCount?: number
+  streakDays?: number
+}
+
 const NAV_MAIN = [
   { icon: '◈', label: 'Dashboard',    path: '/app' },
   { icon: '✦', label: 'My Articles',  path: '/app/articles' },
@@ -20,16 +28,33 @@ const NAV_EXTRA = [
   { icon: '⟡', label: 'Discover',    path: '/discover' },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen = false,
+  onClose,
+  onOpenNotifications,
+  unreadCount: propUnreadCount,
+  streakDays: propStreakDays,
+}: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, showToast, theme, toggleTheme } = useApp()
   const [signingOut, setSigningOut] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [streakDays, setStreakDays] = useState(0)
+  const [internalNotifOpen, setInternalNotifOpen] = useState(false)
+  const [localUnreadCount, setLocalUnreadCount] = useState(0)
+  const [localStreakDays, setLocalStreakDays] = useState(0)
 
+  // Use props if supplied, otherwise use local state
+  const unreadCount = propUnreadCount !== undefined ? propUnreadCount : localUnreadCount
+  const streakDays = propStreakDays !== undefined ? propStreakDays : localStreakDays
+
+  // Auto-close drawer on location change
   useEffect(() => {
+    onClose?.()
+  }, [location.pathname, onClose])
+
+  // Fallback poll if props not provided
+  useEffect(() => {
+    if (propUnreadCount !== undefined && propStreakDays !== undefined) return
     let mounted = true
     const fetchStatus = async () => {
       if (!user?.id) return
@@ -39,8 +64,8 @@ export default function Sidebar() {
           getWritingStreak(user.id)
         ])
         if (mounted) {
-          setUnreadCount(notifs.filter(n => !n.is_read).length)
-          setStreakDays(streak.currentStreak)
+          setLocalUnreadCount(notifs.filter(n => !n.is_read).length)
+          setLocalStreakDays(streak.currentStreak)
         }
       } catch {
         /* ignore error during periodic poll */
@@ -53,12 +78,26 @@ export default function Sidebar() {
       mounted = false
       clearInterval(timer)
     }
-  }, [user])
+  }, [user?.id, propUnreadCount, propStreakDays])
 
   const handleSignOut = async () => {
     setSigningOut(true)
     await supabase.auth.signOut()
+    onClose?.()
     showToast('Signed out successfully')
+  }
+
+  const handleNavClick = (path: string) => {
+    navigate(path)
+    onClose?.()
+  }
+
+  const handleNotifClick = () => {
+    if (onOpenNotifications) {
+      onOpenNotifications()
+    } else {
+      setInternalNotifOpen(true)
+    }
   }
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Writer'
@@ -67,14 +106,38 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className={styles.sidebar}>
+      {/* Dark backdrop overlay on mobile */}
+      <div
+        className={`${styles.backdrop} ${mobileOpen ? styles.backdropOpen : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <aside className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}>
         {/* Brand Header */}
         <div className={styles.logo}>
-          <img src="/favicon.svg" alt="Inkwell" className={styles.brandMark} />
-          <span className={styles.name}>Inkwell</span>
+          <div
+            className={styles.logoBrand}
+            onClick={() => handleNavClick('/app')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter') handleNavClick('/app') }}
+            title="Inkwell Dashboard"
+          >
+            <img src="/favicon.svg" alt="Inkwell" className={styles.brandMark} />
+            <span className={styles.name}>Inkwell</span>
+          </div>
+          <button
+            className={styles.mobileCloseBtn}
+            onClick={onClose}
+            aria-label="Close menu"
+            title="Close menu"
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Top Utility Row: Streak Badge + Notifications + Theme */}
+        {/* Top Utility Row (Desktop only): Streak Badge + Notifications + Theme */}
         <div className={styles.utilityRow}>
           <div className={styles.streakBadge} title={`Current Writing Streak: ${streakDays} day${streakDays === 1 ? '' : 's'}`}>
             <span>🔥</span>
@@ -84,7 +147,7 @@ export default function Sidebar() {
           <div className={styles.utilityActions}>
             <button
               className={styles.notifBtn}
-              onClick={() => setNotifOpen(true)}
+              onClick={handleNotifClick}
               title="Notifications"
               aria-label="View notifications"
             >
@@ -114,7 +177,7 @@ export default function Sidebar() {
             <button
               key={item.path}
               className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavClick(item.path)}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               <span>{item.label}</span>
@@ -128,7 +191,7 @@ export default function Sidebar() {
             <button
               key={item.path}
               className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavClick(item.path)}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               <span>{item.label}</span>
@@ -151,13 +214,15 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Notifications Drawer */}
-      <NotificationDrawer
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
-        userId={user?.id || ''}
-        onUnreadChange={count => setUnreadCount(count)}
-      />
+      {/* Fallback Notifications Drawer if not provided via props */}
+      {!onOpenNotifications && (
+        <NotificationDrawer
+          open={internalNotifOpen}
+          onClose={() => setInternalNotifOpen(false)}
+          userId={user?.id || ''}
+          onUnreadChange={count => setLocalUnreadCount(count)}
+        />
+      )}
     </>
   )
 }

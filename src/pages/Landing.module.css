@@ -584,6 +584,15 @@
 }
 
 @media (max-width: 768px) {
+  .landingRoot {
+    min-height: 100dvh;
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+  }
+  .heroCenter {
+    padding: 24px 16px 40px;
+  }
   .topBar {
     padding: 0 20px;
     height: 60px;

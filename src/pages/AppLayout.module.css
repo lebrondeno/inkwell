@@ -13,16 +13,21 @@
 
 @media (max-width: 768px) {
   .layout {
-    flex-direction: column;
-    padding-top: 56px;   /* top bar height */
-    padding-bottom: 64px; /* bottom nav height */
+    display: block;
+    width: 100%;
+    min-width: 0;
     min-height: 100dvh;
+    padding-top: 56px;   /* top bar height */
+    padding-bottom: 0;
   }
+
   .main {
-    flex: 1;
-    overflow-y: auto;
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }
 

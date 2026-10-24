@@ -215,15 +215,33 @@
 
 /* ── Mobile responsive ── */
 @media (max-width: 768px) {
-  .wrapper { height: 100dvh; }
+  .wrapper {
+    height: 100dvh;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 
   .toolbar {
-    padding: 0 12px; height: 48px; gap: 6px;
+    padding: 0 8px;
+    height: 48px;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
   }
   .toolbarCenter { display: none; }
-  .toolbarLeft, .toolbarRight { min-width: auto; gap: 4px; }
+  .toolbarLeft, .toolbarRight { min-width: auto; gap: 4px; flex-shrink: 0; }
+  .toolBtn { padding: 4px 8px; font-size: 11px; white-space: nowrap; }
 
-  .editorCol { padding: 24px 18px 32px; }
+  .editorCol {
+    padding: 20px 16px 32px;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+  .metaRow { flex-wrap: wrap; gap: 6px; }
+  .seriesSelect { width: 100%; }
   .titleInput { font-size: 24px; }
   .contentInput { font-size: 16px; min-height: 300px; }
 
@@ -231,7 +249,7 @@
   .aiPanel {
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    width: 100%; max-height: 65dvh;
+    width: 100%; max-height: 70dvh;
     border-left: none; border-top: 1px solid var(--border);
     border-radius: 18px 18px 0 0;
     z-index: 300; box-shadow: 0 -20px 60px rgba(0,0,0,0.4);
@@ -251,6 +269,39 @@
 }
 
 
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.metaIcon {
+  color: var(--text-muted);
+  font-size: 13px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.metaInput {
+  flex: 1;
+  background: none;
+  border: none;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+  letter-spacing: 0.02em;
+  font-family: 'DM Sans', sans-serif;
+  box-shadow: none;
+}
+
+.metaInput:focus {
+  outline: none;
+  color: var(--text-primary);
+}
+
 .seriesSelect {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -262,6 +313,7 @@
   cursor: pointer;
   outline: none;
   transition: border-color 0.15s ease;
+  max-width: 100%;
 }
 
 .seriesSelect:focus {
