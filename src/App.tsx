@@ -16,7 +16,7 @@ import PublicProfile    from './pages/PublicProfile'
 import Communities      from './pages/community/Communities'
 import CommunityPage    from './pages/community/CommunityPage'
 import ResetPassword    from './pages/ResetPassword'
-import PWAInstallBanner from './components/PWAInstallBanner'
+import PwaUpdateBanner  from './components/PwaUpdateBanner'
 
 function AppRoutes() {
   const { user, loading, isPasswordRecovery } = useApp()
@@ -81,7 +81,7 @@ export default function App() {
       <AppProvider>
         <VercelAnalytics />
         <AppRoutes />
-        <PWAInstallBanner />
+        <PwaUpdateBanner />
       </AppProvider>
     </BrowserRouter>
   )

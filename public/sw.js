@@ -1,16 +1,25 @@
-const CACHE_NAME = 'inkwell-v9'
+const CACHE_NAME = 'inkwell-v10'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/favicon.svg',
+  '/favicon.svg?v=10',
   '/manifest.json',
+  '/manifest.json?v=10',
   '/icon-192.png',
+  '/icon-192.png?v=10',
   '/icon-512.png',
+  '/icon-512.png?v=10',
   '/icon-192x192.png',
+  '/icon-192x192.png?v=10',
   '/icon-512x512.png',
+  '/icon-512x512.png?v=10',
   '/icon-192x192-maskable.png',
+  '/icon-192x192-maskable.png?v=10',
   '/icon-512x512-maskable.png',
-  '/apple-touch-icon.png'
+  '/icon-512x512-maskable.png?v=10',
+  '/apple-touch-icon.png',
+  '/apple-touch-icon.png?v=10'
 ]
 
 // Install — cache static assets
@@ -19,6 +28,13 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   )
+})
+
+// Allow UI banner to trigger immediate activation
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
 })
 
 // Activate — clean up old caches

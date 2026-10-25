@@ -78,6 +78,16 @@ export default function Profile() {
     else { showToast('Password updated'); setNewPassword('') }
   }
 
+  const handleOpenPwaPrompt = () => {
+    try {
+      localStorage.removeItem('inkwell_icon_v10_ack')
+    } catch {
+      // ignore storage errors
+    }
+    window.dispatchEvent(new CustomEvent('inkwell:open-pwa-banner'))
+    showToast('Opened App Update & Icon Install prompt ✦')
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -137,12 +147,21 @@ export default function Profile() {
               { label: 'Member since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—' },
               { label: 'Plan', value: 'Free — All Features', accent: true },
               { label: 'AI Engine', value: 'Gemini 2.0 Flash' },
+              { label: 'App & Icon Status', value: 'Classic Squircle · v10', accent: true },
             ].map(r => (
               <div key={r.label} className={styles.infoRow}>
                 <span className={styles.infoLabel}>{r.label}</span>
                 <span className={styles.infoValue} style={r.accent ? { color: 'var(--accent)' } : {}}>{r.value}</span>
               </div>
             ))}
+            <button
+              type="button"
+              className={styles.pwaCheckBtn}
+              onClick={handleOpenPwaPrompt}
+            >
+              <img src="/favicon.svg?v=10" alt="" className={styles.pwaCheckIcon} />
+              <span>Check for App Updates / Install Desktop App</span>
+            </button>
           </div>
         </div>
 
