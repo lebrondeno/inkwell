@@ -147,15 +147,23 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats row — Tappable to open Analytics */}
       <div className={styles.stats}>
         {[
-          { label: 'Total Articles', value: stats.total,                 icon: '◈' },
-          { label: 'Published',      value: stats.published,              icon: '◉' },
-          { label: 'Total Views',    value: stats.views.toLocaleString(), icon: '👁' },
-          { label: 'Words Written',  value: stats.words.toLocaleString(), icon: '⊡' },
+          { label: 'Total Articles', value: stats.total,                 icon: '◈', path: '/app/analytics' },
+          { label: 'Published',      value: stats.published,              icon: '◉', path: '/app/analytics' },
+          { label: 'Total Views',    value: stats.views.toLocaleString(), icon: '👁', path: '/app/analytics' },
+          { label: 'Words Written',  value: stats.words.toLocaleString(), icon: '⊡', path: '/app/analytics' },
         ].map(s => (
-          <div key={s.label} className={styles.statCard}>
+          <div
+            key={s.label}
+            className={styles.statCard}
+            onClick={() => navigate(s.path)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter') navigate(s.path) }}
+            title="View Analytics →"
+          >
             <span className={styles.statIcon}>{s.icon}</span>
             <span className={styles.statValue}>{loading ? '—' : s.value}</span>
             <span className={styles.statLabel}>{s.label}</span>

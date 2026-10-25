@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase, upsertProfile, getFollowerCounts } from '../lib/supabase'
 import type { FollowerCount } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
@@ -7,6 +7,7 @@ import styles from './Profile.module.css'
 
 export default function Profile() {
   const { user, showToast } = useApp()
+  const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [name, setName]           = useState(user?.user_metadata?.full_name || '')
@@ -140,6 +141,41 @@ export default function Profile() {
                 🌐 View Public Profile →
               </Link>
             )}
+
+            {/* Writer Quick Links — Direct access to Analytics, Reading List, Discover, and Sign Out */}
+            <div className={styles.quickLinksSection}>
+              <span className={styles.quickLinksLabel}>Writer Quick Links</span>
+              <div className={styles.quickLinksGrid}>
+                <button
+                  type="button"
+                  className={styles.quickLinkBtn}
+                  onClick={() => navigate('/app/analytics')}
+                >
+                  📊 View Analytics
+                </button>
+                <button
+                  type="button"
+                  className={styles.quickLinkBtn}
+                  onClick={() => navigate('/app/bookmarks')}
+                >
+                  🔖 Reading List
+                </button>
+                <button
+                  type="button"
+                  className={styles.quickLinkBtn}
+                  onClick={() => navigate('/discover')}
+                >
+                  🌐 Discover
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.quickLinkBtn} ${styles.quickLinkSignOut}`}
+                  onClick={() => supabase.auth.signOut()}
+                >
+                  → Sign Out
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className={styles.infoCard}>
@@ -147,7 +183,7 @@ export default function Profile() {
               { label: 'Member since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—' },
               { label: 'Plan', value: 'Free — All Features', accent: true },
               { label: 'AI Engine', value: 'Gemini 2.0 Flash' },
-              { label: 'App & Icon Status', value: 'Classic Squircle · v10', accent: true },
+              { label: 'App & Icon Status', value: 'Classic Squircle · v12', accent: true },
             ].map(r => (
               <div key={r.label} className={styles.infoRow}>
                 <span className={styles.infoLabel}>{r.label}</span>

@@ -372,68 +372,12 @@
   border-color: rgba(224, 92, 92, 0.3);
 }
 
-/* ── Mobile Responsive Drawer (<= 768px) ── */
+/* ── Mobile Responsive (<= 768px): Hide desktop sidebar completely ── */
 @media (max-width: 768px) {
-  .backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-    z-index: 299;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-  }
-
-  .backdropOpen {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    max-width: 85vw;
-    height: 100%;
-    z-index: 300;
-    transform: translateX(-100%);
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: none;
-    border-right: 1px solid var(--border);
-  }
-
+  .backdrop,
+  .backdropOpen,
+  .sidebar,
   .sidebarOpen {
-    transform: translateX(0);
-    box-shadow: 6px 0 28px rgba(0, 0, 0, 0.5);
-  }
-
-  .utilityRow {
-    display: none; /* Hide duplicate brand/theme/streak row inside mobile drawer */
-  }
-
-  .mobileCloseBtn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid var(--border-light);
-    background: var(--bg-hover);
-    color: var(--text-secondary);
-    font-size: 15px;
-    cursor: pointer;
-    margin-left: auto;
-    transition: all 0.15s ease;
-  }
-
-  .mobileCloseBtn:hover {
-    color: var(--text-primary);
-    border-color: var(--accent);
+    display: none !important;
   }
 }

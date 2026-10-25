@@ -4,7 +4,6 @@ import { openGlobalSearch } from '../lib/supabase'
 import styles from './MobileNav.module.css'
 
 interface MobileNavProps {
-  onToggleMenu?: () => void
   onOpenNotifications?: () => void
   unreadCount?: number
   streakDays?: number
@@ -20,7 +19,6 @@ const NAV_ITEMS = [
 ]
 
 export default function MobileNav({
-  onToggleMenu,
   onOpenNotifications,
   unreadCount = 0,
   streakDays = 0,
@@ -34,14 +32,6 @@ export default function MobileNav({
       {/* ── Top Bar ── */}
       <header className={styles.topBar}>
         <div className={`${styles.topBarLeft} ${styles.leftGroup}`}>
-          <button
-            className={styles.menuToggleBtn}
-            onClick={onToggleMenu}
-            aria-label="Open menu"
-            title="Menu"
-          >
-            ☰
-          </button>
           <div
             className={styles.brand}
             onClick={() => navigate('/app')}

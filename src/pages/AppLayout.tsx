@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getNotifications, getWritingStreak } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -10,18 +10,9 @@ import styles from './AppLayout.module.css'
 
 export default function AppLayout() {
   const { user } = useApp()
-  const location = useLocation()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [prevPathname, setPrevPathname] = useState(location.pathname)
   const [notifOpen, setNotifOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [streakDays, setStreakDays] = useState(0)
-
-  // Auto-close mobile drawer on route change
-  if (location.pathname !== prevPathname) {
-    setPrevPathname(location.pathname)
-    setMobileMenuOpen(false)
-  }
 
   // Periodic poll for notifications & writing streak
   useEffect(() => {
@@ -53,7 +44,6 @@ export default function AppLayout() {
   return (
     <>
       <MobileNav
-        onToggleMenu={() => setMobileMenuOpen(prev => !prev)}
         onOpenNotifications={() => setNotifOpen(true)}
         unreadCount={unreadCount}
         streakDays={streakDays}
@@ -61,8 +51,6 @@ export default function AppLayout() {
 
       <div className={styles.layout}>
         <Sidebar
-          mobileOpen={mobileMenuOpen}
-          onClose={() => setMobileMenuOpen(false)}
           onOpenNotifications={() => setNotifOpen(true)}
           unreadCount={unreadCount}
           streakDays={streakDays}

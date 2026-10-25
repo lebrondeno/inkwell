@@ -13,8 +13,8 @@
   border-bottom: 1px solid var(--border);
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
-  gap: 8px;
+  padding: 0 12px 0 14px;
+  gap: 12px;
   z-index: 200;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -29,36 +29,10 @@
   flex-shrink: 0;
 }
 
-.menuToggleBtn {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  border: 1px solid var(--border-light);
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.menuToggleBtn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.menuToggleBtn:active {
-  transform: scale(0.94);
-}
-
 .brand {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
   cursor: pointer;
   user-select: none;
   min-width: 0;
@@ -66,9 +40,9 @@
 }
 
 .brandMark {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   display: block;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -76,10 +50,10 @@
 
 .brandName {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
@@ -87,7 +61,7 @@
 .rightGroup {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
