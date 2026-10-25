@@ -445,6 +445,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       const emailTemplate = buildWelcomeEmail({
         recipientName,
+        recipientEmail,
+        recipientUserId: userId,
         appUrl,
       })
 
@@ -539,6 +541,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const totalFollowers = Math.max(1, followerCount || 1)
       const emailTemplate = buildNewFollowerEmail({
         recipientName,
+        recipientEmail,
+        recipientUserId: followingId,
         totalFollowers,
         appUrl,
       })
@@ -652,6 +656,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
         const template = buildFeatureAnnouncementEmail({
           recipientName,
+          recipientEmail: email,
+          recipientUserId: user.id,
           appUrl,
         })
 

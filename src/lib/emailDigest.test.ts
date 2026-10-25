@@ -242,6 +242,8 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
     it('builds editorial welcome email with escaped recipient name, 3 onboarding steps, and CTA link', () => {
       const email = buildWelcomeEmail({
         recipientName: '<b>Elena Vance</b>',
+        recipientEmail: 'elena@example.com',
+        recipientUserId: 'uid-elena-1',
         appUrl: 'https://inkwell.example.com/',
       })
 
@@ -254,8 +256,52 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       expect(email.html).toContain('Follow Writers &amp; Build Your Reading List')
       expect(email.html).toContain('Personalize Your Profile &amp; Join Communities')
       expect(email.html).toContain('Open Your Writer&rsquo;s Desk &rarr;')
-      expect(email.html).toContain('https://inkwell.example.com/app')
-      expect(email.text).toContain("Open Your Writer's Desk → https://inkwell.example.com/app")
+      expect(email.html).toContain(
+        'https://inkwell.example.com/app?for=elena%40example.com&uid=uid-elena-1'
+      )
+      expect(email.html).toContain('This email was sent to <strong>elena@example.com</strong>')
+      expect(email.text).toContain(
+        "Open Your Writer's Desk → https://inkwell.example.com/app?for=elena%40example.com&uid=uid-elena-1"
+      )
+      expect(email.text).toContain('This email was sent to elena@example.com')
+    })
+
+    it('includes recipientEmail and recipientUserId in CTA links and footer across new follower, feature announcement, and digest templates', () => {
+      const followerEmail = buildNewFollowerEmail({
+        recipientName: 'Clara Vance',
+        recipientEmail: 'clara@example.com',
+        recipientUserId: 'uid-clara',
+        totalFollowers: 5,
+        appUrl: 'https://inkwell.example.com',
+      })
+      expect(followerEmail.html).toContain(
+        'https://inkwell.example.com/app?notifications=open&for=clara%40example.com&uid=uid-clara'
+      )
+      expect(followerEmail.html).toContain('This email was sent to <strong>clara@example.com</strong>')
+      expect(followerEmail.text).toContain('This email was sent to clara@example.com')
+
+      const announcementEmail = buildFeatureAnnouncementEmail({
+        recipientName: 'Dennis',
+        recipientEmail: 'dennis@example.com',
+        recipientUserId: 'uid-dennis',
+        appUrl: 'https://inkwell.example.com',
+      })
+      expect(announcementEmail.html).toContain(
+        'https://inkwell.example.com/app?for=dennis%40example.com&uid=uid-dennis'
+      )
+      expect(announcementEmail.html).toContain('This email was sent to <strong>dennis@example.com</strong>')
+
+      const digestHtml = buildDigestHtml({
+        articles: [sampleArticle],
+        recipientName: 'Reader',
+        recipientEmail: 'reader@example.com',
+        recipientUserId: 'uid-reader',
+        appUrl: 'https://inkwell.example.com',
+      })
+      expect(digestHtml).toContain(
+        'https://inkwell.example.com/app/profile?for=reader%40example.com&uid=uid-reader'
+      )
+      expect(digestHtml).toContain('This email was sent to <strong>reader@example.com</strong>')
     })
   })
 

@@ -1,19 +1,41 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import styles from './Landing.module.css'
 
 export default function Landing() {
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signup')
-  const [email, setEmail] = useState('')
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const prefillEmail = (
+    searchParams.get('email') ||
+    searchParams.get('for') ||
+    ''
+  ).trim()
+  const redirectTarget = (searchParams.get('redirect') || '').trim()
+  const shouldAutoOpenSignIn =
+    location.pathname === '/login' ||
+    Boolean(prefillEmail) ||
+    Boolean(redirectTarget)
+
+  const [authModalOpen, setAuthModalOpen] = useState(shouldAutoOpenSignIn)
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(
+    shouldAutoOpenSignIn ? 'signin' : 'signup'
+  )
+  const [email, setEmail] = useState(prefillEmail)
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [resetSent, setResetSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const { showToast, theme, toggleTheme } = useApp()
   const navigate = useNavigate()
+
+  const getSafeRedirect = () => {
+    if (redirectTarget && redirectTarget.startsWith('/')) {
+      return redirectTarget
+    }
+    return '/app'
+  }
 
   const openSignUp = () => {
     setMode('signup')
@@ -30,6 +52,9 @@ export default function Landing() {
   const closeModal = () => {
     setAuthModalOpen(false)
     setResetSent(false)
+    if (location.pathname === '/login') {
+      navigate('/', { replace: true })
+    }
   }
 
   const switchModeTo = (newMode: 'signin' | 'signup' | 'forgot') => {
@@ -49,14 +74,16 @@ export default function Landing() {
         })
         if (error) throw error
         showToast('Account created — welcome to Inkwell')
-        closeModal()
+        setAuthModalOpen(false)
+        navigate(getSafeRedirect(), { replace: true })
       } else if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         })
         if (error) throw error
-        closeModal()
+        setAuthModalOpen(false)
+        navigate(getSafeRedirect(), { replace: true })
       } else if (mode === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: `${window.location.origin}/reset-password`,
@@ -162,7 +189,9 @@ export default function Landing() {
                 </h2>
                 <p className={styles.modalSubtitle}>
                   {mode === 'signin'
-                    ? 'Sign in to access your writing studio'
+                    ? prefillEmail
+                      ? `Sign in as ${prefillEmail}`
+                      : 'Sign in to access your writing studio'
                     : mode === 'signup'
                     ? 'Create your free Inkwell account'
                     : 'Enter your email to receive recovery instructions'}
@@ -220,7 +249,7 @@ export default function Landing() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
-                    autoFocus={mode !== 'signup'}
+                    autoFocus={mode !== 'signup' && !prefillEmail}
                   />
                 </div>
 
@@ -246,6 +275,7 @@ export default function Landing() {
                       onChange={e => setPassword(e.target.value)}
                       required
                       minLength={6}
+                      autoFocus={mode === 'signin' && Boolean(prefillEmail)}
                     />
                   </div>
                 )}

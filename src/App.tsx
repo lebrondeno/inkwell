@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react'
 import { AppProvider, useApp } from './context/AppContext'
 import Landing           from './pages/Landing'
+import Login             from './pages/Login'
 import AppLayout         from './pages/AppLayout'
 import Dashboard         from './pages/Dashboard'
 import Articles          from './pages/Articles'
@@ -16,6 +17,7 @@ import PublicProfile     from './pages/PublicProfile'
 import Communities       from './pages/community/Communities'
 import CommunityPage     from './pages/community/CommunityPage'
 import ResetPassword     from './pages/ResetPassword'
+import ProtectedRoute    from './components/ProtectedRoute'
 import PwaUpdateBanner   from './components/PwaUpdateBanner'
 import GlobalSearchModal from './components/GlobalSearchModal'
 
@@ -50,29 +52,31 @@ function AppRoutes() {
       <Route path="/communities"       element={<Communities    />} />
       <Route path="/c/:slug"           element={<CommunityPage  />} />
       <Route path="/reset-password"    element={<ResetPassword  />} />
+      <Route path="/login"             element={<Login          />} />
 
-      {/* Protected */}
-      {user ? (
-        <>
-          <Route path="/app" element={<AppLayout />}>
-            <Route index                element={<Dashboard  />} />
-            <Route path="articles"      element={<Articles   />} />
-            <Route path="write"         element={<Editor     />} />
-            <Route path="write/:id"     element={<Editor     />} />
-            <Route path="analytics"     element={<Analytics  />} />
-            <Route path="profile"       element={<Profile    />} />
-            <Route path="bookmarks"     element={<Bookmarks  />} />
-            <Route path="series"        element={<SeriesPage />} />
-            <Route path="communities"   element={<Communities />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/app" replace />} />
-        </>
-      ) : (
-        <>
-          <Route path="/"  element={<Landing />} />
-          <Route path="*"  element={<Navigate to="/" replace />} />
-        </>
-      )}
+      {/* Protected Studio Routes (preserves ?for= & ?notifications=open when logged out) */}
+      <Route
+        path="/app"
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index                element={<Dashboard  />} />
+        <Route path="articles"      element={<Articles   />} />
+        <Route path="write"         element={<Editor     />} />
+        <Route path="write/:id"     element={<Editor     />} />
+        <Route path="analytics"     element={<Analytics  />} />
+        <Route path="profile"       element={<Profile    />} />
+        <Route path="bookmarks"     element={<Bookmarks  />} />
+        <Route path="series"        element={<SeriesPage />} />
+        <Route path="communities"   element={<Communities />} />
+      </Route>
+
+      {/* Root & fallback */}
+      <Route path="/" element={user ? <Navigate to="/app" replace /> : <Landing />} />
+      <Route path="*" element={<Navigate to={user ? '/app' : '/'} replace />} />
     </Routes>
   )
 }

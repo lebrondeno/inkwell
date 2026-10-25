@@ -28,6 +28,8 @@ export interface BuildDigestOptions {
   articles: DigestArticle[]
   appUrl?: string
   recipientName?: string
+  recipientEmail?: string
+  recipientUserId?: string
   mode?: 'instant' | 'weekly'
 }
 
@@ -52,12 +54,23 @@ export interface DigestEmailPayload {
 
 export interface NewFollowerEmailOptions {
   recipientName?: string
+  recipientEmail?: string
+  recipientUserId?: string
   totalFollowers?: number
   appUrl?: string
 }
 
 export interface FeatureAnnouncementEmailOptions {
   recipientName?: string
+  recipientEmail?: string
+  recipientUserId?: string
+  appUrl?: string
+}
+
+export interface WelcomeEmailOptions {
+  recipientName?: string
+  recipientEmail?: string
+  recipientUserId?: string
   appUrl?: string
 }
 
@@ -81,6 +94,28 @@ export function escapeHtml(unsafe: string): string {
 function normalizeAppUrl(appUrl?: string): string {
   const cleaned = (appUrl || DEFAULT_APP_URL).trim().replace(/\/+$/, '')
   return cleaned || DEFAULT_APP_URL
+}
+
+export function buildAccountAwareUrl(
+  baseUrl: string,
+  recipientEmail?: string,
+  recipientUserId?: string
+): string {
+  const params: string[] = []
+  if (recipientEmail?.trim()) {
+    params.push(`for=${encodeURIComponent(recipientEmail.trim())}`)
+  }
+  if (recipientUserId?.trim()) {
+    params.push(`uid=${encodeURIComponent(recipientUserId.trim())}`)
+  }
+  if (params.length === 0) return baseUrl
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  return `${baseUrl}${sep}${params.join('&')}`
+}
+
+function buildSentToFooterHtml(recipientEmail?: string): string {
+  if (!recipientEmail?.trim()) return ''
+  return `<p style="margin:6px 0 0;color:#71717A;">This email was sent to <strong>${escapeHtml(recipientEmail.trim())}</strong></p>`
 }
 
 function getArticleSummary(article: DigestArticle): string {
@@ -116,7 +151,13 @@ export function buildDigestSubject(articles: DigestArticle[]): string {
 }
 
 export function buildDigestHtml(options: BuildDigestOptions): string {
-  const { articles, recipientName, mode = 'instant' } = options
+  const {
+    articles,
+    recipientName,
+    recipientEmail,
+    recipientUserId,
+    mode = 'instant',
+  } = options
   const appUrl = normalizeAppUrl(options.appUrl)
   const isSingle = articles.length === 1
   const firstAuthor = escapeHtml(articles[0]?.author_name?.trim() || 'An Inkwell Writer')
@@ -173,7 +214,12 @@ export function buildDigestHtml(options: BuildDigestOptions): string {
     })
     .join('\n')
 
-  const preferencesUrl = `${appUrl}/app/profile`
+  const preferencesUrl = buildAccountAwareUrl(
+    `${appUrl}/app/profile`,
+    recipientEmail,
+    recipientUserId
+  )
+  const sentToHtml = buildSentToFooterHtml(recipientEmail)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -221,6 +267,7 @@ export function buildDigestHtml(options: BuildDigestOptions): string {
               <p style="margin:0;">
                 <a href="${preferencesUrl}" style="color:#B45309;text-decoration:underline;">Manage digest preferences</a>
               </p>
+              ${sentToHtml}
             </td>
           </tr>
         </table>
@@ -232,7 +279,7 @@ export function buildDigestHtml(options: BuildDigestOptions): string {
 }
 
 export function buildDigestText(options: BuildDigestOptions): string {
-  const { articles, recipientName } = options
+  const { articles, recipientName, recipientEmail, recipientUserId } = options
   const appUrl = normalizeAppUrl(options.appUrl)
   const isSingle = articles.length === 1
   const firstAuthor = articles[0]?.author_name?.trim() || 'An Inkwell Writer'
@@ -265,8 +312,16 @@ export function buildDigestText(options: BuildDigestOptions): string {
     lines.push('')
   }
 
+  const preferencesUrl = buildAccountAwareUrl(
+    `${appUrl}/app/profile`,
+    recipientEmail,
+    recipientUserId
+  )
   lines.push('----------------------------------------')
-  lines.push(`Manage digest preferences: ${appUrl}/app/profile`)
+  lines.push(`Manage digest preferences: ${preferencesUrl}`)
+  if (recipientEmail?.trim()) {
+    lines.push(`This email was sent to ${recipientEmail.trim()}`)
+  }
 
   return lines.join('\n')
 }
@@ -349,12 +404,16 @@ export function groupArticlesForFollowers(params: GroupArticlesParams): DigestEm
       articles: entry.articles,
       appUrl,
       recipientName: entry.name,
+      recipientEmail: entry.email,
+      recipientUserId: followerId,
       mode,
     })
     const text = buildDigestText({
       articles: entry.articles,
       appUrl,
       recipientName: entry.name,
+      recipientEmail: entry.email,
+      recipientUserId: followerId,
       mode,
     })
 
@@ -374,12 +433,17 @@ export function groupArticlesForFollowers(params: GroupArticlesParams): DigestEm
 
 export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): BuiltEmailTemplate {
   const appUrl = normalizeAppUrl(options.appUrl)
-  const ctaUrl = `${appUrl}/app?notifications=open`
+  const ctaUrl = buildAccountAwareUrl(
+    `${appUrl}/app?notifications=open`,
+    options.recipientEmail,
+    options.recipientUserId
+  )
   const subject = '✦ Someone new just followed you on Inkwell!'
   const safeRecipient = options.recipientName?.trim()
     ? escapeHtml(options.recipientName.trim())
     : ''
   const totalFollowers = Math.max(0, Number(options.totalFollowers) || 0)
+  const sentToHtml = buildSentToFooterHtml(options.recipientEmail)
 
   const greetingHtml = safeRecipient
     ? `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Hello ${safeRecipient},</p>`
@@ -454,6 +518,7 @@ export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): Bu
               <p style="margin:0;">
                 <a href="${ctaUrl}" style="color:#B45309;text-decoration:underline;">View your notifications on Inkwell</a>
               </p>
+              ${sentToHtml}
             </td>
           </tr>
         </table>
@@ -482,7 +547,10 @@ export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): Bu
       ''
     )
   }
-  textLines.push(`Open Inkwell to See Who It Is → ${ctaUrl}`, '')
+  textLines.push(`Open Inkwell to See Who It Is → ${ctaUrl}`)
+  if (options.recipientEmail?.trim()) {
+    textLines.push('', `This email was sent to ${options.recipientEmail.trim()}`)
+  }
 
   return {
     subject,
@@ -495,11 +563,16 @@ export function buildFeatureAnnouncementEmail(
   options: FeatureAnnouncementEmailOptions = {}
 ): BuiltEmailTemplate {
   const appUrl = normalizeAppUrl(options.appUrl)
-  const ctaUrl = `${appUrl}/app`
+  const ctaUrl = buildAccountAwareUrl(
+    `${appUrl}/app`,
+    options.recipientEmail,
+    options.recipientUserId
+  )
   const subject = "✦ What's New on Inkwell: Followers, Daily Streaks, Series & Search"
   const safeRecipient = options.recipientName?.trim()
     ? escapeHtml(options.recipientName.trim())
     : ''
+  const sentToHtml = buildSentToFooterHtml(options.recipientEmail)
 
   const greetingHtml = safeRecipient
     ? `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Hello ${safeRecipient},</p>`
@@ -604,6 +677,7 @@ export function buildFeatureAnnouncementEmail(
               <p style="margin:0;">
                 <a href="${ctaUrl}" style="color:#B45309;text-decoration:underline;">Open your Inkwell Studio</a>
               </p>
+              ${sentToHtml}
             </td>
           </tr>
         </table>
@@ -627,6 +701,9 @@ export function buildFeatureAnnouncementEmail(
     '',
     `Explore the New Inkwell → ${ctaUrl}`,
   ]
+  if (options.recipientEmail?.trim()) {
+    textLines.push('', `This email was sent to ${options.recipientEmail.trim()}`)
+  }
 
   return {
     subject,
@@ -635,21 +712,20 @@ export function buildFeatureAnnouncementEmail(
   }
 }
 
-
-export interface WelcomeEmailOptions {
-  recipientName?: string
-  appUrl?: string
-}
-
 export function buildWelcomeEmail(
   options: WelcomeEmailOptions = {}
 ): BuiltEmailTemplate {
   const appUrl = normalizeAppUrl(options.appUrl)
-  const ctaUrl = `${appUrl}/app`
+  const ctaUrl = buildAccountAwareUrl(
+    `${appUrl}/app`,
+    options.recipientEmail,
+    options.recipientUserId
+  )
   const subject = "✦ Welcome to Inkwell — Your Writer's Sanctuary Awaits"
   const safeRecipient = options.recipientName?.trim()
     ? escapeHtml(options.recipientName.trim())
     : ''
+  const sentToHtml = buildSentToFooterHtml(options.recipientEmail)
 
   const greetingHtml = safeRecipient
     ? `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Welcome to Inkwell, ${safeRecipient},</p>`
@@ -743,6 +819,7 @@ export function buildWelcomeEmail(
               <p style="margin:0;">
                 <a href="${ctaUrl}" style="color:#B45309;text-decoration:underline;">Open your Inkwell Studio</a>
               </p>
+              ${sentToHtml}
             </td>
           </tr>
         </table>
@@ -766,6 +843,9 @@ export function buildWelcomeEmail(
     '',
     `Open Your Writer's Desk → ${ctaUrl}`,
   ]
+  if (options.recipientEmail?.trim()) {
+    textLines.push('', `This email was sent to ${options.recipientEmail.trim()}`)
+  }
 
   return {
     subject,
