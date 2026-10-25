@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer'
 import {
   buildFeatureAnnouncementEmail,
   buildNewFollowerEmail,
+  buildWelcomeEmail,
   groupArticlesForFollowers,
   type DigestArticle,
   type DigestFollow,
@@ -23,10 +24,13 @@ const corsHeaders: Record<string, string> = {
 }
 
 interface DigestRequestBody {
-  mode?: 'instant' | 'weekly' | 'new_follower' | 'feature_announcement'
+  mode?: 'instant' | 'weekly' | 'new_follower' | 'feature_announcement' | 'welcome'
   articleId?: string
   followerId?: string
   followingId?: string
+  userId?: string
+  email?: string
+  name?: string
   targetEmail?: string
   appUrl?: string
 }
@@ -341,6 +345,152 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+
+    // ── MODE: welcome ───────────────────────────────────────────────
+    if (rawMode === 'welcome') {
+      const userId = body.userId
+      if (!userId) {
+        return jsonResponse(
+          { ok: false, error: 'userId is required for welcome mode' },
+          400
+        )
+      }
+
+      const { data: userData, error: userErr } =
+        await supabaseAdmin.auth.admin.getUserById(userId)
+      const authUser = userData?.user
+
+      if (userErr || !authUser) {
+        return jsonResponse(
+          { ok: false, error: 'User not found' },
+          404
+        )
+      }
+
+      const recipientEmail = authUser.email || body.email || ''
+      if (!recipientEmail) {
+        return jsonResponse({
+          ok: true,
+          mode: 'welcome',
+          count: 0,
+          message: 'User email not found',
+        })
+      }
+
+      // Deduplication check 1: user_metadata.welcome_email_sent
+      const metaAlreadySent = authUser.user_metadata?.welcome_email_sent === true
+
+      // Deduplication check 2: existing welcome notification in public.notifications
+      const { data: existingNotifs } = await supabaseAdmin
+        .from('notifications')
+        .select('id, message')
+        .eq('user_id', userId)
+        .ilike('message', '%Welcome to Inkwell%')
+        .limit(1)
+
+      const notifAlreadyExists = Boolean(existingNotifs && existingNotifs.length > 0)
+
+      if (metaAlreadySent || notifAlreadyExists) {
+        return jsonResponse({
+          ok: true,
+          mode: 'welcome',
+          deduplicated: true,
+          alreadySent: true,
+          count: 0,
+          to: recipientEmail,
+          message: 'Welcome email already sent for this user',
+        })
+      }
+
+      // Resolve display name
+      let recipientName =
+        (body.name || (authUser.user_metadata?.full_name as string | undefined) || '').trim()
+
+      if (!recipientName) {
+        const { data: profileRow } = await supabaseAdmin
+          .from('writer_profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .single()
+        if (profileRow && (profileRow as WriterProfileRow).full_name) {
+          recipientName = (profileRow as WriterProfileRow).full_name || ''
+        }
+      }
+
+      // Insert in-app welcome notification into public.notifications
+      const welcomeMessage =
+        '✦ Welcome to Inkwell! Your email is verified — tap to set up your writer profile and start your first story.'
+
+      const fullInsert = await supabaseAdmin.from('notifications').insert({
+        id: `notif_welcome_${userId.slice(0, 8)}_${Date.now()}`,
+        user_id: userId,
+        actor_id: userId,
+        type: 'new_follower',
+        title: 'Welcome to Inkwell',
+        message: welcomeMessage,
+        link: '/app/profile',
+        is_read: false,
+        created_at: new Date().toISOString(),
+      })
+
+      if (fullInsert.error) {
+        // Fallback if notifications table uses minimal schema / UUID id default
+        await supabaseAdmin.from('notifications').insert({
+          user_id: userId,
+          actor_id: userId,
+          type: 'new_follower',
+          message: welcomeMessage,
+        })
+      }
+
+      const emailTemplate = buildWelcomeEmail({
+        recipientName,
+        appUrl,
+      })
+
+      const idempotencyKey = `welcome/${userId}`
+      const sendResult = await sendEmail({
+        to: recipientEmail,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        idempotencyKey,
+        config: emailConfig,
+        transporter,
+      })
+
+      if (!sendResult.ok) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: `Welcome email delivery error (${sendResult.status})`,
+            provider: sendResult.provider,
+            details: sendResult.details,
+          },
+          502
+        )
+      }
+
+      // Permanently mark welcome_email_sent: true on auth.users.user_metadata
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          ...(authUser.user_metadata || {}),
+          welcome_email_sent: true,
+        },
+      })
+
+      return jsonResponse({
+        ok: true,
+        mode: 'welcome',
+        deduplicated: false,
+        alreadySent: false,
+        simulated: sendResult.provider === 'simulated',
+        provider: sendResult.provider,
+        count: 1,
+        to: recipientEmail,
+        delivery: sendResult.details,
+      })
+    }
 
     // ── MODE: new_follower ──────────────────────────────────────────
     if (rawMode === 'new_follower') {

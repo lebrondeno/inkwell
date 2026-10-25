@@ -634,3 +634,142 @@ export function buildFeatureAnnouncementEmail(
     text: textLines.join('\n'),
   }
 }
+
+
+export interface WelcomeEmailOptions {
+  recipientName?: string
+  appUrl?: string
+}
+
+export function buildWelcomeEmail(
+  options: WelcomeEmailOptions = {}
+): BuiltEmailTemplate {
+  const appUrl = normalizeAppUrl(options.appUrl)
+  const ctaUrl = `${appUrl}/app`
+  const subject = "✦ Welcome to Inkwell — Your Writer's Sanctuary Awaits"
+  const safeRecipient = options.recipientName?.trim()
+    ? escapeHtml(options.recipientName.trim())
+    : ''
+
+  const greetingHtml = safeRecipient
+    ? `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Welcome to Inkwell, ${safeRecipient},</p>`
+    : `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Welcome to Inkwell,</p>`
+
+  const steps = [
+    {
+      emoji: '✍️',
+      title: 'Start Your First Draft or Daily Reflection',
+      description:
+        "Open the studio editor or respond to today's Verse of the Day to start your writing streak.",
+    },
+    {
+      emoji: '🔍',
+      title: 'Follow Writers & Build Your Reading List',
+      description:
+        'Search writers and stories (Ctrl+K) and subscribe to their email digests.',
+    },
+    {
+      emoji: '🏛️',
+      title: 'Personalize Your Profile & Join Communities',
+      description: 'Add your bio and connect with fellow writers.',
+    },
+  ]
+
+  const stepsHtml = steps
+    .map(
+      s => `
+      <div style="padding:14px 16px;margin-bottom:12px;background-color:#FAF8F5;border:1px solid #E6E1D6;border-radius:10px;">
+        <div style="font-family:'Playfair Display','Georgia',serif;font-size:17px;font-weight:700;color:#18181B;margin-bottom:4px;">
+          <span style="margin-right:8px;">${s.emoji}</span>${escapeHtml(s.title)}
+        </div>
+        <div style="font-family:'Georgia',serif;font-size:14px;line-height:1.6;color:#52525B;">
+          ${escapeHtml(s.description)}
+        </div>
+      </div>`
+    )
+    .join('\n')
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAF8F5;color:#18181B;font-family:'Georgia',serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF8F5;padding:36px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#FFFFFF;border:1px solid #E6E1D6;border-radius:12px;overflow:hidden;box-shadow:0 4px 18px rgba(24,24,27,0.04);">
+          <!-- Top Bronze Accent Bar -->
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg,#B45309 0%,#D97706 100%);font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+          <!-- Header -->
+          <tr>
+            <td style="padding:28px 32px 20px;border-bottom:1px solid #F1EDE4;">
+              <div style="font-family:'Playfair Display','Georgia',serif;font-size:18px;font-weight:700;color:#18181B;letter-spacing:-0.01em;margin-bottom:12px;">
+                <span style="color:#B45309;">&#10022;</span> Inkwell
+              </div>
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#B45309;margin-bottom:6px;">
+                Email Confirmed &bull; Welcome Aboard
+              </div>
+              <h1 style="margin:0 0 6px;font-family:'Playfair Display','Georgia',serif;font-size:26px;line-height:1.25;font-weight:700;color:#18181B;">
+                Your Writer&rsquo;s Sanctuary Awaits
+              </h1>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 32px;">
+              ${greetingHtml}
+              <p style="margin:0 0 20px;font-family:'Georgia',serif;font-size:15px;line-height:1.7;color:#3F3F46;">
+                Your email is confirmed and your desk is ready. Inkwell was built for unhurried thinking, timeless essays, and meaningful literary connection. Here are three ways to begin today:
+              </p>
+              ${stepsHtml}
+              <div style="margin-top:24px;">
+                <a href="${ctaUrl}" style="display:inline-block;background-color:#B45309;color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:8px;">
+                  Open Your Writer&rsquo;s Desk &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;background-color:#FAF8F5;border-top:1px solid #E6E1D6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#71717A;line-height:1.6;">
+              <p style="margin:0 0 6px;">
+                You are receiving this welcome letter because you confirmed your account on <a href="${appUrl}" style="color:#B45309;text-decoration:underline;">Inkwell</a>.
+              </p>
+              <p style="margin:0;">
+                <a href="${ctaUrl}" style="color:#B45309;text-decoration:underline;">Open your Inkwell Studio</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const textLines: string[] = [
+    "INKWELL — Welcome to Inkwell — Your Writer's Sanctuary Awaits",
+    '========================================',
+    '',
+    options.recipientName?.trim()
+      ? `Welcome to Inkwell, ${options.recipientName.trim()},`
+      : 'Welcome to Inkwell,',
+    '',
+    'Your email is confirmed and your desk is ready. Here are three ways to begin today:',
+    '',
+    ...steps.map(s => `${s.emoji} ${s.title} — ${s.description}`),
+    '',
+    `Open Your Writer's Desk → ${ctaUrl}`,
+  ]
+
+  return {
+    subject,
+    html,
+    text: textLines.join('\n'),
+  }
+}

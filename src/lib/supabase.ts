@@ -566,6 +566,67 @@ export async function triggerNewFollowerEmail(
   }
 }
 
+export async function ensureWelcomeMessageSent(user: {
+  id: string
+  email?: string | null
+  email_confirmed_at?: string | null
+  created_at?: string | null
+  user_metadata?: Record<string, unknown>
+} | null | undefined): Promise<{ ok: boolean; skipped?: boolean }> {
+  if (!user?.id || !user.email_confirmed_at) {
+    return { ok: false, skipped: true }
+  }
+  if (user.user_metadata?.welcome_email_sent === true) {
+    return { ok: false, skipped: true }
+  }
+
+  const confirmedTime = new Date(user.email_confirmed_at).getTime()
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+  if (Number.isNaN(confirmedTime) || Date.now() - confirmedTime > sevenDaysMs) {
+    return { ok: false, skipped: true }
+  }
+
+  const storageKey = `inkwell_welcome_${user.id}`
+  const ls = safeLocalStorage()
+  if (ls) {
+    try {
+      if (ls.getItem(storageKey) === 'true') {
+        return { ok: false, skipped: true }
+      }
+      ls.setItem(storageKey, 'true')
+    } catch {
+      /* ignore localStorage error */
+    }
+  }
+
+  try {
+    const appUrl =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'https://inkwell-chi-smoky.vercel.app'
+
+    const { data, error } = await supabase.functions.invoke('send-follower-digest', {
+      body: {
+        mode: 'welcome',
+        userId: user.id,
+        email: user.email || undefined,
+        name:
+          typeof user.user_metadata?.full_name === 'string'
+            ? user.user_metadata.full_name
+            : undefined,
+        appUrl,
+      },
+    })
+
+    if (error) {
+      return { ok: false }
+    }
+    return (data as { ok: boolean }) || { ok: true }
+  } catch {
+    return { ok: false }
+  }
+}
+
 export async function unfollowWriter(followerId: string, followingId: string): Promise<boolean> {
   try {
     await supabase.from('follows').delete()

@@ -5,12 +5,14 @@ import {
   buildDigestText,
   buildFeatureAnnouncementEmail,
   buildNewFollowerEmail,
+  buildWelcomeEmail,
   groupArticlesForFollowers,
   type DigestArticle,
   type DigestFollow,
   type DigestLogEntry,
 } from './emailDigest'
 import {
+  ensureWelcomeMessageSent,
   supabase,
   triggerFollowerEmailDigest,
   triggerNewFollowerEmail,
@@ -236,9 +238,28 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       expect(email.html).toContain('https://inkwell.example.com/app')
       expect(email.text).toContain('Explore the New Inkwell → https://inkwell.example.com/app')
     })
+
+    it('builds editorial welcome email with escaped recipient name, 3 onboarding steps, and CTA link', () => {
+      const email = buildWelcomeEmail({
+        recipientName: '<b>Elena Vance</b>',
+        appUrl: 'https://inkwell.example.com/',
+      })
+
+      expect(email.subject).toBe(
+        "✦ Welcome to Inkwell — Your Writer's Sanctuary Awaits"
+      )
+      expect(email.html).not.toContain('<b>Elena Vance</b>')
+      expect(email.html).toContain('Welcome to Inkwell, &lt;b&gt;Elena Vance&lt;/b&gt;,')
+      expect(email.html).toContain('Start Your First Draft or Daily Reflection')
+      expect(email.html).toContain('Follow Writers &amp; Build Your Reading List')
+      expect(email.html).toContain('Personalize Your Profile &amp; Join Communities')
+      expect(email.html).toContain('Open Your Writer&rsquo;s Desk &rarr;')
+      expect(email.html).toContain('https://inkwell.example.com/app')
+      expect(email.text).toContain("Open Your Writer's Desk → https://inkwell.example.com/app")
+    })
   })
 
-  describe('triggerFollowerEmailDigest & triggerNewFollowerEmail client helpers', () => {
+  describe('triggerFollowerEmailDigest, triggerNewFollowerEmail & ensureWelcomeMessageSent client helpers', () => {
     it('invokes send-follower-digest Edge Function and fails gracefully on error', async () => {
       const invokeMock = vi
         .fn()
@@ -283,6 +304,53 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
         },
       })
       expect(res).toEqual({ ok: true, simulated: false, count: 1 })
+    })
+
+    it('triggers welcome email once for newly confirmed users and skips unconfirmed or already-sent users', async () => {
+      const invokeMock = vi
+        .fn()
+        .mockResolvedValue({ data: { ok: true, mode: 'welcome', count: 1 }, error: null })
+
+      vi.spyOn(supabase, 'functions', 'get').mockReturnValue({
+        invoke: invokeMock,
+      } as unknown as typeof supabase.functions)
+
+      // 1. Unconfirmed user is skipped
+      const unconfirmedRes = await ensureWelcomeMessageSent({
+        id: 'user-unconfirmed',
+        email: 'new@example.com',
+        email_confirmed_at: null,
+      })
+      expect(unconfirmedRes).toEqual({ ok: false, skipped: true })
+      expect(invokeMock).not.toHaveBeenCalled()
+
+      // 2. Newly confirmed user triggers welcome mode
+      const nowIso = new Date().toISOString()
+      const confirmedRes = await ensureWelcomeMessageSent({
+        id: 'user-confirmed-1',
+        email: 'writer@example.com',
+        email_confirmed_at: nowIso,
+        user_metadata: { full_name: 'Elena Vance' },
+      })
+      expect(confirmedRes).toEqual({ ok: true, mode: 'welcome', count: 1 })
+      expect(invokeMock).toHaveBeenCalledWith('send-follower-digest', {
+        body: {
+          mode: 'welcome',
+          userId: 'user-confirmed-1',
+          email: 'writer@example.com',
+          name: 'Elena Vance',
+          appUrl: 'https://inkwell-chi-smoky.vercel.app',
+        },
+      })
+
+      // 3. User with welcome_email_sent: true is skipped
+      const alreadyMarkedRes = await ensureWelcomeMessageSent({
+        id: 'user-confirmed-2',
+        email: 'writer2@example.com',
+        email_confirmed_at: nowIso,
+        user_metadata: { welcome_email_sent: true },
+      })
+      expect(alreadyMarkedRes).toEqual({ ok: false, skipped: true })
     })
   })
 })

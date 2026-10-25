@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, upsertProfile } from '../lib/supabase'
+import { supabase, upsertProfile, ensureWelcomeMessageSent } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
 type Theme = 'dark' | 'light'
@@ -71,6 +71,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      if (session?.user) {
+        void ensureWelcomeMessageSent(session.user)
+      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -90,12 +93,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         navigate('/reset-password')
       }
 
-      // Sync writer_profiles whenever user logs in (bootstraps existing users)
+      // Sync writer_profiles & welcome email whenever user logs in or confirms email
       if (session?.user) {
         const u = session.user
         const name = u.user_metadata?.full_name || ''
         const bio = u.user_metadata?.bio || ''
         upsertProfile(u.id, name, bio).catch(() => {})
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+          void ensureWelcomeMessageSent(u)
+        }
       }
     })
 
