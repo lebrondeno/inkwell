@@ -514,7 +514,7 @@ export async function followWriter(followerId: string, followingId: string): Pro
   }
   }
 
-  // 3. Create notification for followed writer
+  // 3. Create notification for followed writer & trigger curiosity-driven email
   try {
     const followerProfile = await getWriterProfile(followerId)
     const followerName = followerProfile?.full_name || 'A reader'
@@ -523,14 +523,47 @@ export async function followWriter(followerId: string, followingId: string): Pro
       actor_id: followerId,
       type: 'new_follower',
       title: 'New Follower',
-      message: `${followerName} started following your stories.`,
-      link: `/writer/${followerId}`
+      message: `${followerName} started following you — tap to view their profile`,
+      link: `/author/${followerId}`
     })
   } catch {
     /* ignore error */
   }
 
+  void triggerNewFollowerEmail(followerId, followingId)
+
   return { success: true }
+}
+
+export async function triggerNewFollowerEmail(
+  followerId: string,
+  followingId: string
+): Promise<{ ok: boolean; simulated?: boolean; count?: number }> {
+  if (!followerId || !followingId || followerId === followingId) {
+    return { ok: false }
+  }
+  try {
+    const appUrl =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'https://inkwell-chi-smoky.vercel.app'
+
+    const { data, error } = await supabase.functions.invoke('send-follower-digest', {
+      body: {
+        mode: 'new_follower',
+        followerId,
+        followingId,
+        appUrl,
+      },
+    })
+
+    if (error) {
+      return { ok: false }
+    }
+    return (data as { ok: boolean; simulated?: boolean; count?: number }) || { ok: true }
+  } catch {
+    return { ok: false }
+  }
 }
 
 export async function unfollowWriter(followerId: string, followingId: string): Promise<boolean> {

@@ -46,9 +46,14 @@ export default function NotificationDrawer({ open, onClose, userId, onUnreadChan
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n))
       onUnreadChange?.(Math.max(0, unreadCount - 1))
     }
-    if (notif.link) {
+    const targetLink =
+      notif.link ||
+      (notif.type === 'new_follower' && notif.actor_id
+        ? `/author/${notif.actor_id}`
+        : '')
+    if (targetLink) {
       onClose()
-      navigate(notif.link)
+      navigate(targetLink)
     }
   }
 

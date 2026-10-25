@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import {
+  buildFeatureAnnouncementEmail,
+  buildNewFollowerEmail,
   groupArticlesForFollowers,
   type DigestArticle,
   type DigestFollow,
@@ -20,8 +22,11 @@ const corsHeaders: Record<string, string> = {
 }
 
 interface DigestRequestBody {
-  mode?: 'instant' | 'weekly'
+  mode?: 'instant' | 'weekly' | 'new_follower' | 'feature_announcement'
   articleId?: string
+  followerId?: string
+  followingId?: string
+  targetEmail?: string
   appUrl?: string
 }
 
@@ -60,6 +65,53 @@ function jsonResponse(body: Record<string, unknown>, status = 200): Response {
 
 async function sleep(ms: number): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function sendResendSingleWithRetry(
+  resendApiKey: string,
+  payload: {
+    from: string
+    to: string[]
+    subject: string
+    html: string
+    text: string
+  },
+  idempotencyKey: string
+): Promise<{ ok: boolean; status: number; bodyText: string }> {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey.slice(0, 256),
+      },
+      body: JSON.stringify(payload),
+    })
+
+    const bodyText = await res.text().catch(() => '')
+
+    if (res.ok) {
+      return { ok: true, status: res.status, bodyText }
+    }
+
+    const isRetryable = res.status === 429 || res.status >= 500
+    if (!isRetryable || attempt === maxAttempts) {
+      return { ok: false, status: res.status, bodyText }
+    }
+
+    const retryAfterHeader = res.headers.get('retry-after')
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN
+    const delayMs =
+      !Number.isNaN(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : Math.pow(2, attempt - 1) * 1000
+
+    await sleep(delayMs)
+  }
+
+  return { ok: false, status: 500, bodyText: 'Max retry attempts reached' }
 }
 
 async function sendResendBatchWithRetry(
@@ -132,15 +184,260 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const body = (await req.json().catch(() => ({}))) as DigestRequestBody
-    const mode: 'instant' | 'weekly' = body.mode === 'weekly' ? 'weekly' : 'instant'
+    const rawMode = body.mode || 'instant'
     const appUrl =
       body.appUrl ||
       Deno.env.get('PUBLIC_APP_URL') ||
       'https://inkwell-chi-smoky.vercel.app'
 
+    const isConfiguredKey = Boolean(
+      resendApiKey &&
+        resendApiKey !== 're_your_key_here' &&
+        !resendApiKey.includes('your_key')
+    )
+
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+
+    // ── MODE: new_follower ──────────────────────────────────────────
+    if (rawMode === 'new_follower') {
+      const followingId = body.followingId
+      const followerId = body.followerId || 'reader'
+
+      if (!followingId) {
+        return jsonResponse(
+          { ok: false, error: 'followingId is required for new_follower mode' },
+          400
+        )
+      }
+
+      const { data: userData, error: userErr } =
+        await supabaseAdmin.auth.admin.getUserById(followingId)
+      const recipientEmail = userData?.user?.email
+
+      if (userErr || !recipientEmail) {
+        return jsonResponse({
+          ok: true,
+          mode: 'new_follower',
+          count: 0,
+          message: 'Followed writer email not found',
+        })
+      }
+
+      let recipientName =
+        (userData?.user?.user_metadata?.full_name as string | undefined)?.trim() || ''
+
+      if (!recipientName) {
+        const { data: profileRow } = await supabaseAdmin
+          .from('writer_profiles')
+          .select('full_name')
+          .eq('id', followingId)
+          .single()
+        if (profileRow && (profileRow as WriterProfileRow).full_name) {
+          recipientName = (profileRow as WriterProfileRow).full_name || ''
+        }
+      }
+
+      const { count: followerCount } = await supabaseAdmin
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', followingId)
+
+      const totalFollowers = Math.max(1, followerCount || 1)
+      const emailTemplate = buildNewFollowerEmail({
+        recipientName,
+        totalFollowers,
+        appUrl,
+      })
+
+      if (!isConfiguredKey) {
+        return jsonResponse({
+          ok: true,
+          mode: 'new_follower',
+          simulated: true,
+          count: 1,
+          to: recipientEmail,
+          totalFollowers,
+        })
+      }
+
+      const minuteWindow = new Date().toISOString().slice(0, 16)
+      const idempotencyKey = `new-follower/${followingId}-${followerId}-${minuteWindow}`
+      const sendRes = await sendResendSingleWithRetry(
+        resendApiKey,
+        {
+          from: fromEmail,
+          to: [recipientEmail],
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
+          text: emailTemplate.text,
+        },
+        idempotencyKey
+      )
+
+      if (!sendRes.ok) {
+        if (sendRes.status === 403) {
+          return jsonResponse({
+            ok: true,
+            mode: 'new_follower',
+            simulated: false,
+            count: 0,
+            skippedSandbox: 1,
+            message: 'Recipient skipped due to Resend sandbox restriction',
+            details: sendRes.bodyText,
+          })
+        }
+        return jsonResponse(
+          {
+            ok: false,
+            error: `Resend API error (${sendRes.status})`,
+            details: sendRes.bodyText,
+          },
+          502
+        )
+      }
+
+      let resendData: unknown = null
+      try {
+        resendData = JSON.parse(sendRes.bodyText)
+      } catch {
+        resendData = sendRes.bodyText
+      }
+
+      return jsonResponse({
+        ok: true,
+        mode: 'new_follower',
+        simulated: false,
+        count: 1,
+        to: recipientEmail,
+        totalFollowers,
+        resend: resendData,
+      })
+    }
+
+    // ── MODE: feature_announcement ──────────────────────────────────
+    if (rawMode === 'feature_announcement') {
+      const { data: usersListData, error: listErr } =
+        await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 })
+
+      if (listErr) {
+        return jsonResponse({ ok: false, error: listErr.message }, 500)
+      }
+
+      const allAuthUsers = usersListData?.users || []
+      const targetFilter = body.targetEmail?.trim().toLowerCase()
+
+      const { data: allProfiles } = await supabaseAdmin
+        .from('writer_profiles')
+        .select('id, full_name')
+
+      const profileNameMap = new Map<string, string>()
+      for (const p of (allProfiles || []) as WriterProfileRow[]) {
+        if (p.id && p.full_name) {
+          profileNameMap.set(p.id, p.full_name)
+        }
+      }
+
+      const recipients = allAuthUsers
+        .filter(u => Boolean(u.email))
+        .filter(u =>
+          targetFilter ? (u.email || '').toLowerCase() === targetFilter : true
+        )
+
+      if (recipients.length === 0) {
+        return jsonResponse({
+          ok: true,
+          mode: 'feature_announcement',
+          simulated: !isConfiguredKey,
+          totalUsers: 0,
+          sent: 0,
+          skippedSandbox: 0,
+          results: [],
+        })
+      }
+
+      const dateKey = new Date().toISOString().slice(0, 13)
+      const results: Array<{
+        userId: string
+        email: string
+        status: 'sent' | 'simulated' | 'skipped_sandbox' | 'failed'
+        details?: unknown
+      }> = []
+
+      let sentCount = 0
+      let skippedSandbox = 0
+
+      for (const user of recipients) {
+        const email = user.email as string
+        const metaName =
+          (user.user_metadata?.full_name as string | undefined)?.trim() || ''
+        const recipientName = profileNameMap.get(user.id) || metaName || ''
+
+        const template = buildFeatureAnnouncementEmail({
+          recipientName,
+          appUrl,
+        })
+
+        if (!isConfiguredKey) {
+          sentCount++
+          results.push({ userId: user.id, email, status: 'simulated' })
+          continue
+        }
+
+        const idempotencyKey = `feature-announcement/${user.id}-${dateKey}`
+        const sendRes = await sendResendSingleWithRetry(
+          resendApiKey,
+          {
+            from: fromEmail,
+            to: [email],
+            subject: template.subject,
+            html: template.html,
+            text: template.text,
+          },
+          idempotencyKey
+        )
+
+        if (sendRes.ok) {
+          sentCount++
+          let parsed: unknown = sendRes.bodyText
+          try {
+            parsed = JSON.parse(sendRes.bodyText)
+          } catch {
+            /* keep text */
+          }
+          results.push({ userId: user.id, email, status: 'sent', details: parsed })
+        } else if (sendRes.status === 403) {
+          skippedSandbox++
+          results.push({
+            userId: user.id,
+            email,
+            status: 'skipped_sandbox',
+            details: sendRes.bodyText,
+          })
+        } else {
+          results.push({
+            userId: user.id,
+            email,
+            status: 'failed',
+            details: sendRes.bodyText,
+          })
+        }
+      }
+
+      return jsonResponse({
+        ok: true,
+        mode: 'feature_announcement',
+        simulated: !isConfiguredKey,
+        totalUsers: recipients.length,
+        sent: sentCount,
+        skippedSandbox,
+        results,
+      })
+    }
+
+    // ── MODE: instant / weekly ──────────────────────────────────────
+    const mode: 'instant' | 'weekly' = rawMode === 'weekly' ? 'weekly' : 'instant'
 
     // 1. Load target published articles
     let articleRows: ArticleRow[] = []
@@ -276,11 +573,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     })
 
     const sendablePayloads = allPayloads.filter(p => Boolean(p.to))
-    const isConfiguredKey = Boolean(
-      resendApiKey &&
-        resendApiKey !== 're_your_key_here' &&
-        !resendApiKey.includes('your_key')
-    )
 
     if (sendablePayloads.length === 0) {
       return jsonResponse({

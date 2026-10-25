@@ -46,6 +46,7 @@ function AppRoutes() {
       <Route path="/articles/:slug"    element={<PublicArticle  />} />
       <Route path="/p/:slug"           element={<PublicArticle  />} />
       <Route path="/writer/:userId"    element={<PublicProfile  />} />
+      <Route path="/author/:userId"    element={<PublicProfile  />} />
       <Route path="/communities"       element={<Communities    />} />
       <Route path="/c/:slug"           element={<CommunityPage  />} />
       <Route path="/reset-password"    element={<ResetPassword  />} />

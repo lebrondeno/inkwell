@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { getNotifications, getWritingStreak } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -10,9 +10,23 @@ import styles from './AppLayout.module.css'
 
 export default function AppLayout() {
   const { user } = useApp()
-  const [notifOpen, setNotifOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [notifOpen, setNotifOpen] = useState(
+    () => searchParams.get('notifications') === 'open'
+  )
   const [unreadCount, setUnreadCount] = useState(0)
   const [streakDays, setStreakDays] = useState(0)
+
+  const isDrawerOpen = notifOpen || searchParams.get('notifications') === 'open'
+
+  const handleCloseNotifications = () => {
+    setNotifOpen(false)
+    if (searchParams.get('notifications') === 'open') {
+      const next = new URLSearchParams(searchParams)
+      next.delete('notifications')
+      setSearchParams(next, { replace: true })
+    }
+  }
 
   // Periodic poll for notifications & writing streak
   useEffect(() => {
@@ -63,8 +77,8 @@ export default function AppLayout() {
       </div>
 
       <NotificationDrawer
-        open={notifOpen}
-        onClose={() => setNotifOpen(false)}
+        open={isDrawerOpen}
+        onClose={handleCloseNotifications}
         userId={user?.id || ''}
         onUnreadChange={count => setUnreadCount(count)}
       />

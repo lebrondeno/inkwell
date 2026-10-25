@@ -50,6 +50,23 @@ export interface DigestEmailPayload {
   articles: DigestArticle[]
 }
 
+export interface NewFollowerEmailOptions {
+  recipientName?: string
+  totalFollowers?: number
+  appUrl?: string
+}
+
+export interface FeatureAnnouncementEmailOptions {
+  recipientName?: string
+  appUrl?: string
+}
+
+export interface BuiltEmailTemplate {
+  subject: string
+  html: string
+  text: string
+}
+
 const DEFAULT_APP_URL = 'https://inkwell-chi-smoky.vercel.app'
 
 export function escapeHtml(unsafe: string): string {
@@ -353,4 +370,267 @@ export function groupArticlesForFollowers(params: GroupArticlesParams): DigestEm
   }
 
   return payloads
+}
+
+export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): BuiltEmailTemplate {
+  const appUrl = normalizeAppUrl(options.appUrl)
+  const ctaUrl = `${appUrl}/app?notifications=open`
+  const subject = '✦ Someone new just followed you on Inkwell!'
+  const safeRecipient = options.recipientName?.trim()
+    ? escapeHtml(options.recipientName.trim())
+    : ''
+  const totalFollowers = Math.max(0, Number(options.totalFollowers) || 0)
+
+  const greetingHtml = safeRecipient
+    ? `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Hello ${safeRecipient},</p>`
+    : ''
+
+  const milestoneHtml =
+    totalFollowers > 0
+      ? `<div style="margin:20px 0 24px;padding:16px 20px;background-color:#FAF8F5;border:1px solid #E6E1D6;border-radius:10px;">
+           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#B45309;margin-bottom:4px;">
+             Audience Milestone
+           </div>
+           <div style="font-family:'Playfair Display','Georgia',serif;font-size:20px;font-weight:700;color:#18181B;">
+             ${totalFollowers} ${totalFollowers === 1 ? 'Reader Follows' : 'Readers Follow'} Your Work
+           </div>
+         </div>`
+      : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAF8F5;color:#18181B;font-family:'Georgia',serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF8F5;padding:36px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#FFFFFF;border:1px solid #E6E1D6;border-radius:12px;overflow:hidden;box-shadow:0 4px 18px rgba(24,24,27,0.04);">
+          <!-- Top Bronze Accent Bar -->
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg,#B45309 0%,#D97706 100%);font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+          <!-- Header -->
+          <tr>
+            <td style="padding:28px 32px 20px;border-bottom:1px solid #F1EDE4;">
+              <div style="font-family:'Playfair Display','Georgia',serif;font-size:18px;font-weight:700;color:#18181B;letter-spacing:-0.01em;margin-bottom:12px;">
+                <span style="color:#B45309;">&#10022;</span> Inkwell
+              </div>
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#B45309;margin-bottom:6px;">
+                New Reader Connection
+              </div>
+              <h1 style="margin:0 0 6px;font-family:'Playfair Display','Georgia',serif;font-size:26px;line-height:1.25;font-weight:700;color:#18181B;">
+                Someone new just followed your writing on Inkwell
+              </h1>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 32px;">
+              ${greetingHtml}
+              <p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;line-height:1.7;color:#3F3F46;">
+                Your words are resonating. A fellow reader on Inkwell just subscribed to follow your stories and essays.
+              </p>
+              <p style="margin:0 0 20px;font-family:'Georgia',serif;font-size:16px;line-height:1.7;color:#3F3F46;">
+                We are keeping their name a surprise inside your notification drawer &mdash; step into your studio to see who just joined your reading circle and explore their profile!
+              </p>
+              ${milestoneHtml}
+              <div style="margin-top:24px;">
+                <a href="${ctaUrl}" style="display:inline-block;background-color:#B45309;color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:8px;">
+                  Open Inkwell to See Who It Is &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;background-color:#FAF8F5;border-top:1px solid #E6E1D6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#71717A;line-height:1.6;">
+              <p style="margin:0 0 6px;">
+                You are receiving this notification because you write on <a href="${appUrl}" style="color:#B45309;text-decoration:underline;">Inkwell</a>.
+              </p>
+              <p style="margin:0;">
+                <a href="${ctaUrl}" style="color:#B45309;text-decoration:underline;">View your notifications on Inkwell</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const textLines: string[] = [
+    'INKWELL — Someone new just followed you on Inkwell!',
+    '========================================',
+    '',
+  ]
+  if (options.recipientName?.trim()) {
+    textLines.push(`Hello ${options.recipientName.trim()},`, '')
+  }
+  textLines.push(
+    'Your words are resonating. Someone new just followed your writing on Inkwell!',
+    'We are keeping their identity a surprise in this email — open Inkwell to see who it is and check out their profile.',
+    ''
+  )
+  if (totalFollowers > 0) {
+    textLines.push(
+      `Audience Milestone: ${totalFollowers} ${totalFollowers === 1 ? 'reader now follows' : 'readers now follow'} your work.`,
+      ''
+    )
+  }
+  textLines.push(`Open Inkwell to See Who It Is → ${ctaUrl}`, '')
+
+  return {
+    subject,
+    html,
+    text: textLines.join('\n'),
+  }
+}
+
+export function buildFeatureAnnouncementEmail(
+  options: FeatureAnnouncementEmailOptions = {}
+): BuiltEmailTemplate {
+  const appUrl = normalizeAppUrl(options.appUrl)
+  const ctaUrl = `${appUrl}/app`
+  const subject = "✦ What's New on Inkwell: Followers, Daily Streaks, Series & Search"
+  const safeRecipient = options.recipientName?.trim()
+    ? escapeHtml(options.recipientName.trim())
+    : ''
+
+  const greetingHtml = safeRecipient
+    ? `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Hello ${safeRecipient},</p>`
+    : `<p style="margin:0 0 16px;font-family:'Georgia',serif;font-size:16px;color:#3F3F46;">Hello Writer,</p>`
+
+  const features = [
+    {
+      emoji: '👥',
+      title: 'Follow Writers & Email Digests',
+      description: 'Follow your favorite voices and get notified when they publish.',
+    },
+    {
+      emoji: '🔥',
+      title: 'Daily Reflection Prompts & Writing Streaks',
+      description: 'Keep your daily writing flame alive with the Verse of the Day.',
+    },
+    {
+      emoji: '🔍',
+      title: 'Global Search & Reading Lists',
+      description:
+        'Instantly search writers, articles, series, and communities, and bookmark stories for later.',
+    },
+    {
+      emoji: '📚',
+      title: 'Multi-Part Series & Version History',
+      description:
+        'Organize multi-part collections and restore any draft snapshot with 1 click.',
+    },
+    {
+      emoji: '✒️',
+      title: 'New Classic App Icon & Mobile Experience',
+      description:
+        'Faster, cleaner mobile navigation and a new classic squircle app icon.',
+    },
+  ]
+
+  const featuresHtml = features
+    .map(
+      f => `
+      <div style="padding:14px 16px;margin-bottom:12px;background-color:#FAF8F5;border:1px solid #E6E1D6;border-radius:10px;">
+        <div style="font-family:'Playfair Display','Georgia',serif;font-size:17px;font-weight:700;color:#18181B;margin-bottom:4px;">
+          <span style="margin-right:8px;">${f.emoji}</span>${escapeHtml(f.title)}
+        </div>
+        <div style="font-family:'Georgia',serif;font-size:14px;line-height:1.6;color:#52525B;">
+          ${escapeHtml(f.description)}
+        </div>
+      </div>`
+    )
+    .join('\n')
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAF8F5;color:#18181B;font-family:'Georgia',serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF8F5;padding:36px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#FFFFFF;border:1px solid #E6E1D6;border-radius:12px;overflow:hidden;box-shadow:0 4px 18px rgba(24,24,27,0.04);">
+          <!-- Top Bronze Accent Bar -->
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg,#B45309 0%,#D97706 100%);font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+          <!-- Header -->
+          <tr>
+            <td style="padding:28px 32px 20px;border-bottom:1px solid #F1EDE4;">
+              <div style="font-family:'Playfair Display','Georgia',serif;font-size:18px;font-weight:700;color:#18181B;letter-spacing:-0.01em;margin-bottom:12px;">
+                <span style="color:#B45309;">&#10022;</span> Inkwell
+              </div>
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#B45309;margin-bottom:6px;">
+                Product Update &bull; Studio Edition
+              </div>
+              <h1 style="margin:0 0 6px;font-family:'Playfair Display','Georgia',serif;font-size:25px;line-height:1.25;font-weight:700;color:#18181B;">
+                What&rsquo;s New on Inkwell: Followers, Daily Streaks, Series &amp; Search
+              </h1>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 32px;">
+              ${greetingHtml}
+              <p style="margin:0 0 20px;font-family:'Georgia',serif;font-size:15px;line-height:1.7;color:#3F3F46;">
+                We have been crafting a calmer, richer home for your essays, reflections, and literary communities. Here is what is waiting for you inside Inkwell today:
+              </p>
+              ${featuresHtml}
+              <div style="margin-top:24px;">
+                <a href="${ctaUrl}" style="display:inline-block;background-color:#B45309;color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:8px;">
+                  Explore the New Inkwell &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;background-color:#FAF8F5;border-top:1px solid #E6E1D6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#71717A;line-height:1.6;">
+              <p style="margin:0 0 6px;">
+                You are receiving this studio update as a member of <a href="${appUrl}" style="color:#B45309;text-decoration:underline;">Inkwell</a>.
+              </p>
+              <p style="margin:0;">
+                <a href="${ctaUrl}" style="color:#B45309;text-decoration:underline;">Open your Inkwell Studio</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const textLines: string[] = [
+    "INKWELL — What's New on Inkwell: Followers, Daily Streaks, Series & Search",
+    '========================================',
+    '',
+    options.recipientName?.trim()
+      ? `Hello ${options.recipientName.trim()},`
+      : 'Hello Writer,',
+    '',
+    'We have been crafting a calmer, richer home for your essays, reflections, and literary communities. Here is what is new inside Inkwell:',
+    '',
+    ...features.map(f => `${f.emoji} ${f.title} — ${f.description}`),
+    '',
+    `Explore the New Inkwell → ${ctaUrl}`,
+  ]
+
+  return {
+    subject,
+    html,
+    text: textLines.join('\n'),
+  }
 }

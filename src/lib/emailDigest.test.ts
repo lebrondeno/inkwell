@@ -3,12 +3,18 @@ import {
   buildDigestHtml,
   buildDigestSubject,
   buildDigestText,
+  buildFeatureAnnouncementEmail,
+  buildNewFollowerEmail,
   groupArticlesForFollowers,
   type DigestArticle,
   type DigestFollow,
   type DigestLogEntry,
 } from './emailDigest'
-import { supabase, triggerFollowerEmailDigest } from './supabase'
+import {
+  supabase,
+  triggerFollowerEmailDigest,
+  triggerNewFollowerEmail,
+} from './supabase'
 
 describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
   const sampleArticle: DigestArticle = {
@@ -194,7 +200,45 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
     })
   })
 
-  describe('triggerFollowerEmailDigest client helper', () => {
+  describe('buildNewFollowerEmail & buildFeatureAnnouncementEmail', () => {
+    it('builds curiosity-driven new follower email without spoiling the follower name and links to ?notifications=open', () => {
+      const email = buildNewFollowerEmail({
+        recipientName: 'Clara Vance',
+        totalFollowers: 12,
+        appUrl: 'https://inkwell.example.com/',
+      })
+
+      expect(email.subject).toBe('✦ Someone new just followed you on Inkwell!')
+      expect(email.html).toContain('Hello Clara Vance,')
+      expect(email.html).toContain('Someone new just followed your writing on Inkwell')
+      expect(email.html).toContain('12 Readers Follow Your Work')
+      expect(email.html).toContain('https://inkwell.example.com/app?notifications=open')
+      expect(email.html).toContain('Open Inkwell to See Who It Is')
+      expect(email.text).toContain('https://inkwell.example.com/app?notifications=open')
+    })
+
+    it('builds editorial feature announcement email showcasing all 5 new Inkwell features', () => {
+      const email = buildFeatureAnnouncementEmail({
+        recipientName: 'Dennis',
+        appUrl: 'https://inkwell.example.com',
+      })
+
+      expect(email.subject).toBe(
+        "✦ What's New on Inkwell: Followers, Daily Streaks, Series & Search"
+      )
+      expect(email.html).toContain('Hello Dennis,')
+      expect(email.html).toContain('Follow Writers &amp; Email Digests')
+      expect(email.html).toContain('Daily Reflection Prompts &amp; Writing Streaks')
+      expect(email.html).toContain('Global Search &amp; Reading Lists')
+      expect(email.html).toContain('Multi-Part Series &amp; Version History')
+      expect(email.html).toContain('New Classic App Icon &amp; Mobile Experience')
+      expect(email.html).toContain('Explore the New Inkwell')
+      expect(email.html).toContain('https://inkwell.example.com/app')
+      expect(email.text).toContain('Explore the New Inkwell → https://inkwell.example.com/app')
+    })
+  })
+
+  describe('triggerFollowerEmailDigest & triggerNewFollowerEmail client helpers', () => {
     it('invokes send-follower-digest Edge Function and fails gracefully on error', async () => {
       const invokeMock = vi
         .fn()
@@ -218,6 +262,27 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       // Simulate Edge Function not deployed yet / network error
       const fallbackRes = await triggerFollowerEmailDigest('art-123')
       expect(fallbackRes).toEqual({ ok: false })
+    })
+
+    it('invokes send-follower-digest in new_follower mode', async () => {
+      const invokeMock = vi
+        .fn()
+        .mockResolvedValueOnce({ data: { ok: true, simulated: false, count: 1 }, error: null })
+
+      vi.spyOn(supabase, 'functions', 'get').mockReturnValue({
+        invoke: invokeMock,
+      } as unknown as typeof supabase.functions)
+
+      const res = await triggerNewFollowerEmail('follower-1', 'writer-2')
+      expect(invokeMock).toHaveBeenCalledWith('send-follower-digest', {
+        body: {
+          mode: 'new_follower',
+          followerId: 'follower-1',
+          followingId: 'writer-2',
+          appUrl: 'https://inkwell-chi-smoky.vercel.app',
+        },
+      })
+      expect(res).toEqual({ ok: true, simulated: false, count: 1 })
     })
   })
 })
