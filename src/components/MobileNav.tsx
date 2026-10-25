@@ -33,7 +33,7 @@ export default function MobileNav({
     <>
       {/* ── Top Bar ── */}
       <header className={styles.topBar}>
-        <div className={styles.topBarLeft}>
+        <div className={`${styles.topBarLeft} ${styles.leftGroup}`}>
           <button
             className={styles.menuToggleBtn}
             onClick={onToggleMenu}
@@ -55,7 +55,7 @@ export default function MobileNav({
           </div>
         </div>
 
-        <div className={styles.topBarRight}>
+        <div className={`${styles.topBarRight} ${styles.rightGroup}`}>
           <button
             type="button"
             className={styles.searchBtn}

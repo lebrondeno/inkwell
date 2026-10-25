@@ -1,11 +1,14 @@
 .page {
   padding: 48px 56px;
+  width: 100%;
   max-width: 900px;
+  min-width: 0;
+  box-sizing: border-box;
   animation: fadeIn 0.4s ease;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-.header { margin-bottom: 40px; }
+.header { margin-bottom: 40px; width: 100%; min-width: 0; }
 .header h1 {
   font-family: 'Playfair Display', Georgia, serif;
   font-size: clamp(2rem, 3vw, 2.5rem);
@@ -18,13 +21,24 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 270px 1fr;
+  grid-template-columns: 270px minmax(0, 1fr);
   gap: 28px;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Left */
-.leftCol { display: flex; flex-direction: column; gap: 16px; }
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
 
 .avatarCard {
   background: var(--bg-card); border: 1px solid var(--border);
@@ -32,6 +46,7 @@
   border-radius: var(--radius-lg); padding: 28px 24px;
   text-align: center; display: flex; flex-direction: column;
   align-items: center; gap: 10px;
+  width: 100%; min-width: 0; box-sizing: border-box;
 }
 .avatar {
   width: 72px; height: 72px; border-radius: 16px;
@@ -46,9 +61,10 @@
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  overflow-wrap: break-word;
 }
-.avatarCard > p { font-size: 12.5px; color: var(--text-secondary); font-weight: 500; }
-.bio { font-size: 13px; color: var(--text-secondary); line-height: 1.6; text-align: center; }
+.avatarCard > p { font-size: 12.5px; color: var(--text-secondary); font-weight: 500; overflow-wrap: break-word; }
+.bio { font-size: 13px; color: var(--text-secondary); line-height: 1.6; text-align: center; overflow-wrap: break-word; }
 .badge {
   display: flex; align-items: center; gap: 6px;
   background: var(--accent-glow); border: 1px solid rgba(201,169,110,0.35);
@@ -69,10 +85,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   gap: 12px;
+  box-sizing: border-box;
 }
 
 .audienceStatBlock {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -107,10 +125,11 @@
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 16px 20px;
   display: flex; flex-direction: column; gap: 14px;
+  width: 100%; min-width: 0; box-sizing: border-box;
 }
-.infoRow { display: flex; flex-direction: column; gap: 3px; }
+.infoRow { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .infoLabel { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
-.infoValue { font-size: 13px; color: var(--text-primary); font-weight: 600; }
+.infoValue { font-size: 13px; color: var(--text-primary); font-weight: 600; overflow-wrap: break-word; }
 
 .pwaCheckBtn {
   display: inline-flex;
@@ -131,6 +150,7 @@
   transition: all 0.15s ease;
   text-align: left;
   line-height: 1.3;
+  box-sizing: border-box;
 }
 
 .pwaCheckBtn:hover {
@@ -150,13 +170,14 @@
 .rightCol {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 32px;
+  width: 100%; min-width: 0; box-sizing: border-box;
 }
 .section h3 {
   font-family: 'Playfair Display', Georgia, serif; font-size: 18px; font-weight: 800;
   margin-bottom: 20px; color: var(--text-primary); letter-spacing: -0.015em;
 }
 .fieldGroup { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
-.field { display: flex; flex-direction: column; gap: 7px; }
+.field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .field label {
   font-size: 11px; font-weight: 700; color: var(--text-secondary);
   letter-spacing: 0.06em; text-transform: uppercase;
@@ -165,12 +186,12 @@
 .dangerDesc { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
 
 @media (max-width: 768px) {
-  .page { padding: 24px 18px; }
-  .layout { grid-template-columns: 1fr; }
-  .rightCol { padding: 22px; }
+  .page { padding: 20px 16px 32px; width: 100%; max-width: 100%; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .rightCol { padding: 20px 16px; }
 }
 @media (max-width: 480px) {
-  .page { padding: 16px 14px; }
+  .page { padding: 16px 12px 28px; }
 }
 
 /* ── Avatar upload ── */
@@ -212,7 +233,7 @@
   letter-spacing: 0.03em;
 }
 
-.email { font-size: 12px; color: var(--text-muted); }
+.email { font-size: 12px; color: var(--text-muted); overflow-wrap: break-word; }
 
 .publicProfileLink {
   display: inline-flex;
@@ -229,6 +250,7 @@
   transition: background 0.15s, color 0.15s;
   width: 100%;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .publicProfileLink:hover {

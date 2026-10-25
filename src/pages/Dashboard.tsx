@@ -100,17 +100,17 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.dashboard}`}>
       {/* Header */}
       <div className={styles.header}>
-        <div>
+        <div className={styles.headerText}>
           <p className={styles.kicker}>THE WRITER&apos;S DESK — DAILY DISPATCH</p>
           <h1 className={styles.title}>
             {greeting}, <em className={styles.titleAccent}>{displayName}</em>
           </h1>
           <p className={styles.sub}>Craft timeless prose, reflect deeply, and publish stories worth remembering.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/app/write')}>
+        <button className={`btn btn-primary ${styles.newArticleBtn}`} onClick={() => navigate('/app/write')}>
           ✦ New Article
         </button>
       </div>
