@@ -4,7 +4,7 @@ import {
   type DigestArticle,
   type DigestFollow,
   type DigestLogEntry,
-} from '../../../src/lib/emailDigest.ts'
+} from '../_shared/emailDigest.ts'
 
 declare const Deno: {
   env: {
@@ -58,6 +58,56 @@ function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   })
 }
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function sendResendBatchWithRetry(
+  resendApiKey: string,
+  batchPayload: Array<{
+    from: string
+    to: string[]
+    subject: string
+    html: string
+    text: string
+  }>,
+  idempotencyKey: string
+): Promise<{ ok: boolean; status: number; bodyText: string }> {
+  const maxAttempts = 3
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey.slice(0, 256),
+      },
+      body: JSON.stringify(batchPayload),
+    })
+
+    const bodyText = await res.text().catch(() => '')
+
+    if (res.ok) {
+      return { ok: true, status: res.status, bodyText }
+    }
+
+    const isRetryable = res.status === 429 || res.status >= 500
+    if (!isRetryable || attempt === maxAttempts) {
+      return { ok: false, status: res.status, bodyText }
+    }
+
+    const retryAfterHeader = res.headers.get('retry-after')
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN
+    const delayMs = !Number.isNaN(retryAfterSeconds) && retryAfterSeconds > 0
+      ? retryAfterSeconds * 1000
+      : Math.pow(2, attempt - 1) * 1000
+
+    await sleep(delayMs)
+  }
+
+  return { ok: false, status: 500, bodyText: 'Max retry attempts reached' }
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -71,7 +121,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const resendApiKey = Deno.env.get('RESEND_API_KEY') || ''
-    const fromEmail = Deno.env.get('DIGEST_FROM_EMAIL') || 'Inkwell <digest@inkwell.app>'
+    const fromEmail =
+      Deno.env.get('DIGEST_FROM_EMAIL') || 'Inkwell <onboarding@resend.dev>'
 
     if (!supabaseUrl || !serviceRoleKey) {
       return jsonResponse(
@@ -82,7 +133,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const body = (await req.json().catch(() => ({}))) as DigestRequestBody
     const mode: 'instant' | 'weekly' = body.mode === 'weekly' ? 'weekly' : 'instant'
-    const appUrl = body.appUrl || Deno.env.get('PUBLIC_APP_URL') || 'https://inkwell-chi-smoky.vercel.app'
+    const appUrl =
+      body.appUrl ||
+      Deno.env.get('PUBLIC_APP_URL') ||
+      'https://inkwell-chi-smoky.vercel.app'
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -236,30 +290,39 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonResponse({ ok: true, simulated: false, count: 0, mode })
     }
 
-    // 7. Dispatch via Resend batch API (POST https://api.resend.com/emails/batch)
-    const batchRequest = sendablePayloads.map(p => ({
-      from: fromEmail,
-      to: [p.to as string],
-      subject: p.subject,
-      html: p.html,
-      text: p.text,
-    }))
+    // 7. Dispatch via Resend batch API in chunks of up to 100 emails with Idempotency-Key
+    const batchSize = 100
+    const dateKey = new Date().toISOString().split('T')[0]
+    const entityKey = body.articleId || dateKey
 
-    const resendRes = await fetch('https://api.resend.com/emails/batch', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(batchRequest),
-    })
+    for (let i = 0; i < sendablePayloads.length; i += batchSize) {
+      const chunk = sendablePayloads.slice(i, i + batchSize)
+      const batchRequest = chunk.map(p => ({
+        from: fromEmail,
+        to: [p.to as string],
+        subject: p.subject,
+        html: p.html,
+        text: p.text,
+      }))
 
-    if (!resendRes.ok) {
-      const errText = await resendRes.text().catch(() => 'Unknown Resend API error')
-      return jsonResponse(
-        { ok: false, error: `Resend API error (${resendRes.status})`, details: errText },
-        502
+      const chunkIdx = Math.floor(i / batchSize)
+      const idempotencyKey = `batch-digest/${mode}-${entityKey}-${chunkIdx}`
+      const resendResult = await sendResendBatchWithRetry(
+        resendApiKey,
+        batchRequest,
+        idempotencyKey
       )
+
+      if (!resendResult.ok) {
+        return jsonResponse(
+          {
+            ok: false,
+            error: `Resend API error (${resendResult.status})`,
+            details: resendResult.bodyText,
+          },
+          502
+        )
+      }
     }
 
     // 8. Record sent (follower_id, article_id) pairs in public.digest_logs
