@@ -43,6 +43,7 @@ function AppRoutes() {
       {/* Fully public — no auth needed */}
       <Route path="/discover"          element={<PublicDiscover />} />
       <Route path="/articles/:slug"    element={<PublicArticle  />} />
+      <Route path="/p/:slug"           element={<PublicArticle  />} />
       <Route path="/writer/:userId"    element={<PublicProfile  />} />
       <Route path="/communities"       element={<Communities    />} />
       <Route path="/c/:slug"           element={<CommunityPage  />} />

@@ -1,0 +1,292 @@
+import { createClient } from '@supabase/supabase-js'
+import {
+  groupArticlesForFollowers,
+  type DigestArticle,
+  type DigestFollow,
+  type DigestLogEntry,
+} from '../../../src/lib/emailDigest.ts'
+
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined
+  }
+  serve(handler: (req: Request) => Response | Promise<Response>): void
+}
+
+const corsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+interface DigestRequestBody {
+  mode?: 'instant' | 'weekly'
+  articleId?: string
+  appUrl?: string
+}
+
+interface ArticleRow {
+  id: string
+  user_id: string
+  title: string
+  slug: string
+  summary?: string
+  content?: string
+  reading_time?: number
+  cover_emoji?: string
+  created_at?: string
+}
+
+interface WriterProfileRow {
+  id: string
+  full_name?: string
+}
+
+interface FollowRow {
+  follower_id: string
+  following_id: string
+  email_digest?: boolean
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
+  })
+}
+
+Deno.serve(async (req: Request): Promise<Response> => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  if (req.method !== 'POST') {
+    return jsonResponse({ ok: false, error: 'Method not allowed' }, 405)
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const resendApiKey = Deno.env.get('RESEND_API_KEY') || ''
+    const fromEmail = Deno.env.get('DIGEST_FROM_EMAIL') || 'Inkwell <digest@inkwell.app>'
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse(
+        { ok: false, error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' },
+        500
+      )
+    }
+
+    const body = (await req.json().catch(() => ({}))) as DigestRequestBody
+    const mode: 'instant' | 'weekly' = body.mode === 'weekly' ? 'weekly' : 'instant'
+    const appUrl = body.appUrl || Deno.env.get('PUBLIC_APP_URL') || 'https://inkwell-chi-smoky.vercel.app'
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
+    // 1. Load target published articles
+    let articleRows: ArticleRow[] = []
+
+    if (mode === 'instant') {
+      if (!body.articleId) {
+        return jsonResponse({ ok: false, error: 'articleId is required for instant mode' }, 400)
+      }
+      const { data, error } = await supabaseAdmin
+        .from('articles')
+        .select('id, user_id, title, slug, summary, content, reading_time, cover_emoji, created_at')
+        .eq('id', body.articleId)
+        .eq('status', 'published')
+        .single()
+
+      if (error || !data) {
+        return jsonResponse({ ok: true, count: 0, message: 'Published article not found' })
+      }
+      articleRows = [data as ArticleRow]
+    } else {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { data } = await supabaseAdmin
+        .from('articles')
+        .select('id, user_id, title, slug, summary, content, reading_time, cover_emoji, created_at')
+        .eq('status', 'published')
+        .gte('created_at', sevenDaysAgo)
+        .order('created_at', { ascending: false })
+
+      articleRows = (data || []) as ArticleRow[]
+    }
+
+    if (articleRows.length === 0) {
+      return jsonResponse({ ok: true, count: 0, message: 'No published articles to send' })
+    }
+
+    const authorIds = [...new Set(articleRows.map(a => a.user_id))]
+    const articleIds = articleRows.map(a => a.id)
+
+    // 2. Enrich author display names
+    const { data: profiles } = await supabaseAdmin
+      .from('writer_profiles')
+      .select('id, full_name')
+      .in('id', authorIds)
+
+    const authorNameMap = new Map<string, string>()
+    for (const p of (profiles || []) as WriterProfileRow[]) {
+      if (p.id && p.full_name) {
+        authorNameMap.set(p.id, p.full_name)
+      }
+    }
+
+    const digestArticles: DigestArticle[] = articleRows.map(a => ({
+      id: a.id,
+      user_id: a.user_id,
+      title: a.title,
+      slug: a.slug,
+      summary: a.summary,
+      content: a.content,
+      reading_time: a.reading_time,
+      cover_emoji: a.cover_emoji,
+      author_name: authorNameMap.get(a.user_id) || 'An Inkwell Writer',
+      published_at: a.created_at,
+    }))
+
+    // 3. Query follows (supporting both `follows` and `writer_follows` tables)
+    const followsList: FollowRow[] = []
+    const seenFollowPair = new Set<string>()
+
+    for (const tableName of ['follows', 'writer_follows']) {
+      const { data } = await supabaseAdmin
+        .from(tableName)
+        .select('follower_id, following_id, email_digest')
+        .in('following_id', authorIds)
+        .eq('email_digest', true)
+
+      for (const row of (data || []) as FollowRow[]) {
+        const key = `${row.follower_id}:${row.following_id}`
+        if (!seenFollowPair.has(key)) {
+          seenFollowPair.add(key)
+          followsList.push(row)
+        }
+      }
+    }
+
+    if (followsList.length === 0) {
+      return jsonResponse({ ok: true, count: 0, message: 'No followers subscribed to email digest' })
+    }
+
+    // 4. Query digest_logs to skip already-sent (follower_id, article_id) pairs
+    const { data: existingLogs } = await supabaseAdmin
+      .from('digest_logs')
+      .select('follower_id, article_id')
+      .in('article_id', articleIds)
+
+    const sentLogs: DigestLogEntry[] = ((existingLogs || []) as DigestLogEntry[]).map(l => ({
+      follower_id: l.follower_id,
+      article_id: l.article_id,
+    }))
+
+    // 5. Resolve follower email addresses via auth.admin.getUserById
+    const uniqueFollowerIds = [...new Set(followsList.map(f => f.follower_id))]
+    const followerEmails: Record<string, string> = {}
+    const followerNames: Record<string, string> = {}
+
+    for (const followerId of uniqueFollowerIds) {
+      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(followerId)
+      const email = userData?.user?.email
+      if (email) {
+        followerEmails[followerId] = email
+      }
+      const metaName = userData?.user?.user_metadata?.full_name
+      if (typeof metaName === 'string' && metaName.trim()) {
+        followerNames[followerId] = metaName.trim()
+      }
+    }
+
+    const enrichedFollows: DigestFollow[] = followsList.map(f => ({
+      follower_id: f.follower_id,
+      following_id: f.following_id,
+      email_digest: f.email_digest ?? true,
+      follower_email: followerEmails[f.follower_id],
+      follower_name: followerNames[f.follower_id],
+    }))
+
+    // 6. Build deduplicated email payloads
+    const allPayloads = groupArticlesForFollowers({
+      follows: enrichedFollows,
+      articles: digestArticles,
+      sentLogs,
+      followerEmails,
+      appUrl,
+      mode,
+    })
+
+    const sendablePayloads = allPayloads.filter(p => Boolean(p.to))
+
+    if (!resendApiKey) {
+      return jsonResponse({
+        ok: true,
+        simulated: true,
+        count: sendablePayloads.length,
+        mode,
+      })
+    }
+
+    if (sendablePayloads.length === 0) {
+      return jsonResponse({ ok: true, simulated: false, count: 0, mode })
+    }
+
+    // 7. Dispatch via Resend batch API (POST https://api.resend.com/emails/batch)
+    const batchRequest = sendablePayloads.map(p => ({
+      from: fromEmail,
+      to: [p.to as string],
+      subject: p.subject,
+      html: p.html,
+      text: p.text,
+    }))
+
+    const resendRes = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(batchRequest),
+    })
+
+    if (!resendRes.ok) {
+      const errText = await resendRes.text().catch(() => 'Unknown Resend API error')
+      return jsonResponse(
+        { ok: false, error: `Resend API error (${resendRes.status})`, details: errText },
+        502
+      )
+    }
+
+    // 8. Record sent (follower_id, article_id) pairs in public.digest_logs
+    const logRows = sendablePayloads.flatMap(p =>
+      p.articleIds.map(articleId => ({
+        follower_id: p.followerId,
+        article_id: articleId,
+        mode,
+        sent_at: new Date().toISOString(),
+      }))
+    )
+
+    if (logRows.length > 0) {
+      await supabaseAdmin
+        .from('digest_logs')
+        .upsert(logRows, { onConflict: 'follower_id,article_id' })
+    }
+
+    return jsonResponse({
+      ok: true,
+      simulated: false,
+      count: sendablePayloads.length,
+      logged: logRows.length,
+      mode,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal Edge Function error'
+    return jsonResponse({ ok: false, error: message }, 500)
+  }
+})

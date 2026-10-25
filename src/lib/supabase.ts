@@ -485,7 +485,7 @@ export async function followWriter(followerId: string, followingId: string): Pro
 
   // 1. Try Supabase
   try {
-    await supabase.from('writer_follows').upsert({
+    await supabase.from('follows').upsert({
       follower_id: followerId,
       following_id: followingId,
       email_digest: true,
@@ -535,7 +535,7 @@ export async function followWriter(followerId: string, followingId: string): Pro
 
 export async function unfollowWriter(followerId: string, followingId: string): Promise<boolean> {
   try {
-    await supabase.from('writer_follows').delete()
+    await supabase.from('follows').delete()
       .eq('follower_id', followerId)
       .eq('following_id', followingId)
   } catch {
@@ -559,7 +559,7 @@ export async function isFollowingWriter(followerId: string, followingId: string)
   if (!followerId || !followingId || followerId === followingId) return false
 
   try {
-    const { data } = await supabase.from('writer_follows')
+    const { data } = await supabase.from('follows')
       .select('following_id')
       .eq('follower_id', followerId)
       .eq('following_id', followingId)
@@ -587,8 +587,8 @@ export async function getFollowerCounts(userId: string): Promise<FollowerCount> 
 
   try {
     const [{ count: fCount }, { count: ingCount }] = await Promise.all([
-      supabase.from('writer_follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-      supabase.from('writer_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
     ])
     followers = fCount || 0
     following = ingCount || 0
@@ -614,7 +614,7 @@ export async function getFollowerCounts(userId: string): Promise<FollowerCount> 
 
 export async function toggleFollowDigest(followerId: string, followingId: string, enabled: boolean): Promise<boolean> {
   try {
-    await supabase.from('writer_follows')
+    await supabase.from('follows')
       .update({ email_digest: enabled })
       .eq('follower_id', followerId)
       .eq('following_id', followingId)
@@ -641,7 +641,7 @@ export async function toggleFollowDigest(followerId: string, followingId: string
 export async function getFollowingFeed(userId: string): Promise<Article[]> {
   let followedIds: string[] = []
   try {
-    const { data } = await supabase.from('writer_follows')
+    const { data } = await supabase.from('follows')
       .select('following_id')
       .eq('follower_id', userId)
     if (data && data.length > 0) {
@@ -828,10 +828,40 @@ export async function markAllNotificationsRead(userId: string): Promise<boolean>
   return true
 }
 
+export async function triggerFollowerEmailDigest(
+  articleId: string
+): Promise<{ ok: boolean; simulated?: boolean; count?: number }> {
+  if (!articleId) return { ok: false }
+  try {
+    const appUrl =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'https://inkwell-chi-smoky.vercel.app'
+
+    const { data, error } = await supabase.functions.invoke('send-follower-digest', {
+      body: {
+        mode: 'instant',
+        articleId,
+        appUrl,
+      },
+    })
+
+    if (error) {
+      return { ok: false }
+    }
+    return (data as { ok: boolean; simulated?: boolean; count?: number }) || { ok: true }
+  } catch {
+    return { ok: false }
+  }
+}
+
 export async function notifyFollowersOfNewArticle(authorId: string, article: { id: string; title: string; slug: string }): Promise<void> {
+  if (article.id) {
+    void triggerFollowerEmailDigest(article.id)
+  }
   let followers: string[] = []
   try {
-    const { data } = await supabase.from('writer_follows').select('follower_id').eq('following_id', authorId)
+    const { data } = await supabase.from('follows').select('follower_id').eq('following_id', authorId)
     if (data) followers = data.map(d => d.follower_id)
   } catch {
     /* ignore error */
