@@ -87,8 +87,12 @@ export function buildDigestSubject(articles: DigestArticle[]): string {
   }
   if (articles.length === 1) {
     const first = articles[0]
-    const author = first.author_name?.trim() || 'An Inkwell Writer'
-    const title = first.title?.trim() || 'Untitled'
+    const author =
+      first.author_name?.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() ||
+      'An Inkwell Writer'
+    const title =
+      first.title?.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() ||
+      'Untitled'
     return `New story from ${author}: "${title}"`
   }
   return `Your Inkwell Reading Digest (${articles.length} new stories)`
