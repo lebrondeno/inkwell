@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase, upsertProfile } from '../lib/supabase'
+import { supabase, upsertProfile, getFollowerCounts } from '../lib/supabase'
+import type { FollowerCount } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import styles from './Profile.module.css'
 
@@ -11,10 +12,21 @@ export default function Profile() {
   const [name, setName]           = useState(user?.user_metadata?.full_name || '')
   const [bio, setBio]             = useState(user?.user_metadata?.bio || '')
   const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || '')
+  const [counts, setCounts]       = useState<FollowerCount>({ followers: 0, following: 0 })
   const [saving, setSaving]       = useState(false)
   const [uploading, setUploading] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [changingPw, setChangingPw]   = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    if (user?.id) {
+      getFollowerCounts(user.id).then(c => {
+        if (mounted) setCounts(c)
+      })
+    }
+    return () => { mounted = false }
+  }, [user?.id])
 
   const displayName = name || user?.email?.split('@')[0] || 'Writer'
   const initials    = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -94,6 +106,19 @@ export default function Profile() {
             <p className={styles.email}>{user?.email}</p>
             {bio && <p className={styles.bio}>{bio}</p>}
             <div className={styles.badge}><span>✦</span><span>Inkwell Writer</span></div>
+
+            {/* Audience Stats Bar — Always visible even when 0 */}
+            <div className={styles.audienceStats} aria-label="Audience statistics">
+              <div className={styles.audienceStatBlock}>
+                <span className={styles.audienceValue}>{counts.followers}</span>
+                <span className={styles.audienceLabel}>Followers</span>
+              </div>
+              <div className={styles.audienceDivider} />
+              <div className={styles.audienceStatBlock}>
+                <span className={styles.audienceValue}>{counts.following}</span>
+                <span className={styles.audienceLabel}>Following</span>
+              </div>
+            </div>
 
             {user && (
               <Link

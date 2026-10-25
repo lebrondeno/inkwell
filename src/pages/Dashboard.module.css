@@ -19,41 +19,67 @@
   flex-wrap: wrap;
 }
 
+.kicker {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+  font-weight: 800;
+}
+
 .greeting {
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 4px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .title {
-  font-family: 'Playfair Display', serif;
-  font-size: 32px;
-  font-weight: 700;
-  margin: 0 0 4px;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.85rem, 3vw, 2.5rem);
+  font-weight: 800;
+  margin: 0 0 8px;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
+}
+
+.titleAccent {
+  font-style: italic;
+  color: #B45309;
+  font-weight: 700;
+}
+
+:root[data-theme="dark"] .titleAccent {
+  color: var(--accent);
 }
 
 .sub {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   margin: 0;
+  letter-spacing: -0.005em;
 }
 
 /* Daily Reflection & Streak Card */
 .reflectionCard {
-  background: linear-gradient(145deg, var(--bg-secondary) 0%, rgba(20, 18, 16, 0.85) 100%);
-  border: 1px solid rgba(201, 169, 110, 0.3);
+  background: var(--bg-card);
+  border: 1px solid rgba(180, 83, 9, 0.35);
   border-radius: 14px;
   padding: 24px 28px;
   margin-bottom: 36px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   position: relative;
   overflow: hidden;
+}
+
+:root[data-theme="dark"] .reflectionCard {
+  background: linear-gradient(145deg, var(--bg-secondary) 0%, rgba(20, 18, 16, 0.92) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .reflectionCard::before {
@@ -62,8 +88,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent) 0%, rgba(201, 169, 110, 0.2) 100%);
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, rgba(180, 83, 9, 0.25) 100%);
 }
 
 .reflectionTop {
@@ -78,9 +104,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -89,28 +115,29 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(201, 169, 110, 0.12);
-  border: 1px solid rgba(201, 169, 110, 0.3);
-  padding: 4px 10px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  padding: 5px 12px;
   border-radius: 100px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--accent);
 }
 
 .verseText {
   font-family: 'Playfair Display', Georgia, serif;
   font-style: italic;
-  font-size: 16.5px;
-  line-height: 1.6;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.55;
   color: var(--text-primary);
   margin: 0 0 10px;
 }
 
 .verseRef {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
   margin-bottom: 18px;
 }
 
@@ -119,36 +146,37 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 14px;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--border);
   gap: 14px;
   flex-wrap: wrap;
 }
 
 .reflectionPromptText {
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--text-secondary);
   font-style: italic;
 }
 
 .reflectionBtn {
   background: var(--accent);
-  color: #141210;
+  color: #FFFFFF;
   border: none;
   border-radius: 8px;
-  padding: 9px 18px;
+  padding: 10px 18px;
   font-size: 13px;
-  font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-family: 'Inter', 'DM Sans', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 2px 8px rgba(201, 169, 110, 0.25);
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.28);
 }
 
 .reflectionBtn:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
   transform: translateY(-1px);
 }
 
@@ -161,41 +189,46 @@
 }
 
 .statCard {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border);
+  border-top: 2.5px solid var(--accent);
   border-radius: var(--radius-lg);
-  padding: 18px 16px;
+  padding: 20px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   transition: all 0.18s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .statCard:hover {
   border-color: var(--accent);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
 
 .statIcon {
   color: var(--accent);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 700;
   margin-bottom: 2px;
 }
 
 .statValue {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 2.2rem;
+  font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 .statLabel {
   font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 /* Section */
@@ -212,10 +245,11 @@
 
 .sectionHeader h2 {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 /* Editorial Tabs */
@@ -223,7 +257,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1.5px solid var(--border);
   margin-bottom: 20px;
   padding-bottom: 2px;
 }
@@ -231,11 +265,11 @@
 .tabBtn {
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-muted);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
+  border-bottom: 2.5px solid transparent;
+  color: var(--text-secondary);
+  font-family: 'Inter', 'DM Sans', sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
   padding: 8px 14px 10px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -243,7 +277,7 @@
   align-items: center;
   gap: 6px;
   position: relative;
-  margin-bottom: -2px;
+  margin-bottom: -2.5px;
 }
 
 .tabBtn:hover {
@@ -257,7 +291,8 @@
 
 .tabBadge {
   font-size: 11px;
-  padding: 1px 6px;
+  font-weight: 800;
+  padding: 1px 7px;
   border-radius: 100px;
   background: var(--bg-hover);
   color: var(--accent);
@@ -272,10 +307,10 @@
 }
 
 .feedCard {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 18px;
+  padding: 20px;
   text-decoration: none;
   display: flex;
   flex-direction: column;
@@ -286,7 +321,7 @@
 .feedCard:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
 }
 
 .feedCardTop {
@@ -302,17 +337,18 @@
 
 .feedAuthor {
   font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
+  color: var(--text-secondary);
+  font-weight: 700;
 }
 
 .feedTitle {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17.5px;
+  font-weight: 800;
   color: var(--text-primary);
   margin: 0 0 6px;
-  line-height: 1.35;
+  line-height: 1.32;
+  letter-spacing: -0.015em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -320,9 +356,9 @@
 }
 
 .feedSummary {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: 1.5;
   margin: 0 0 14px;
   flex: 1;
   display: -webkit-box;
@@ -336,9 +372,10 @@
   align-items: center;
   justify-content: space-between;
   font-size: 11.5px;
+  font-weight: 600;
   color: var(--text-muted);
   padding-top: 10px;
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--border);
 }
 
 .removeBookmarkBtn {
@@ -361,19 +398,19 @@
 .articleList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .articleRow {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-radius: var(--radius);
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border);
   position: relative;
 }
 
@@ -384,12 +421,12 @@
 
 .articleEmoji {
   font-size: 18px;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-hover);
+  background: var(--bg-secondary);
   border-radius: var(--radius);
   flex-shrink: 0;
 }
@@ -401,8 +438,8 @@
 
 .articleInfo h3 {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   margin: 0 0 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -411,8 +448,8 @@
 }
 
 .articleInfo p {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 12.5px;
+  color: var(--text-secondary);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -429,6 +466,7 @@
 
 .time {
   font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
@@ -437,7 +475,7 @@
   height: 24px;
   border-radius: 6px;
   background: var(--accent);
-  color: #141210;
+  color: #FFFFFF;
   font-size: 12px;
   font-weight: 700;
   display: flex;
@@ -456,11 +494,12 @@
 .emptyFeed {
   text-align: center;
   padding: 40px 20px;
-  background: var(--bg-secondary);
-  border: 1px dashed var(--border);
+  background: var(--bg-card);
+  border: 1px dashed var(--border-light);
   border-radius: 12px;
-  color: var(--text-muted);
-  font-size: 13.5px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .emptyFeed p {
@@ -487,7 +526,7 @@
   }
 
   .title {
-    font-size: 24px;
+    font-size: 26px;
   }
 
   .reflectionCard {
@@ -523,7 +562,7 @@
   }
 
   .statValue {
-    font-size: 22px;
+    font-size: 1.75rem;
   }
 
   .tabsBar {
@@ -544,7 +583,7 @@
     white-space: nowrap;
     flex-shrink: 0;
     padding: 7px 12px 9px;
-    font-size: 13px;
+    font-size: 13.5px;
   }
 
   .feedGrid {
@@ -568,11 +607,11 @@
   }
 
   .title {
-    font-size: 22px;
+    font-size: 23px;
   }
 
   .verseText {
-    font-size: 15px;
+    font-size: 15.5px;
   }
 
   .stats {
@@ -581,7 +620,6 @@
   }
 
   .statValue {
-    font-size: 20px;
+    font-size: 1.55rem;
   }
 }
-

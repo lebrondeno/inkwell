@@ -103,9 +103,11 @@ export default function Dashboard() {
       {/* Header */}
       <div className={styles.header}>
         <div>
-          <p className={styles.greeting}>{greeting}</p>
-          <h1 className={styles.title}>{displayName}</h1>
-          <p className={styles.sub}>Craft timeless prose, reflect deeply, and share your vision.</p>
+          <p className={styles.kicker}>THE WRITER&apos;S DESK — DAILY DISPATCH</p>
+          <h1 className={styles.title}>
+            {greeting}, <em className={styles.titleAccent}>{displayName}</em>
+          </h1>
+          <p className={styles.sub}>Craft timeless prose, reflect deeply, and publish stories worth remembering.</p>
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/app/write')}>
           ✦ New Article
@@ -117,7 +119,7 @@ export default function Dashboard() {
         <div className={styles.reflectionTop}>
           <div className={styles.reflectionEyebrow}>
             <span>✦</span>
-            <span>Daily Reflection & Streak</span>
+            <span>Daily Reflection &amp; Streak</span>
           </div>
           <div className={styles.streakPill}>
             <span>🔥</span>
@@ -127,11 +129,11 @@ export default function Dashboard() {
 
         {verse ? (
           <>
-            <p className={styles.verseText}>"{verse.text.trim()}"</p>
+            <p className={styles.verseText}>&ldquo;{verse.text.trim()}&rdquo;</p>
             <p className={styles.verseRef}>— {verse.reference} ({verse.translation_name || 'KJV'})</p>
           </>
         ) : (
-          <p className={styles.verseText}>"Commit thy works unto the Lord, and thy thoughts shall be established." — Proverbs 16:3</p>
+          <p className={styles.verseText}>&ldquo;Commit thy works unto the Lord, and thy thoughts shall be established.&rdquo; — Proverbs 16:3</p>
         )}
 
         <div className={styles.reflectionActions}>
@@ -139,7 +141,7 @@ export default function Dashboard() {
             Pause, reflect, and write your thoughts for today.
           </span>
           <button className={styles.reflectionBtn} onClick={handleWriteReflection}>
-            ✍️ Write Today's Reflection
+            ✍️ Write Today&apos;s Reflection
           </button>
         </div>
       </div>
@@ -193,7 +195,7 @@ export default function Dashboard() {
             </div>
           ) : followingArticles.length === 0 ? (
             <div className={styles.emptyFeed}>
-              <p>You aren't following any writers with recent stories yet.</p>
+              <p>You aren&apos;t following any writers with recent stories yet.</p>
               <button className="btn btn-ghost" style={{ fontSize: '12px' }} onClick={() => setActiveTab('discover')}>
                 Explore Discover →
               </button>
@@ -281,7 +283,7 @@ export default function Dashboard() {
                   <p className={styles.feedSummary}>{article.summary || article.content?.replace(/<[^>]*>/g, '').slice(0, 90) || '...'}</p>
                   <div className={styles.feedFoot}>
                     <span>{article.reading_time || 5} min read</span>
-                    <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Read story →</span>
+                    <span style={{ color: 'var(--accent)', fontWeight: 700 }}>Read story →</span>
                   </div>
                 </Link>
               ))}

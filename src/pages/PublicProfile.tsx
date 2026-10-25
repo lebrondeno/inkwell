@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { supabase, getWriterProfile } from '../lib/supabase'
+import { supabase, getWriterProfile, getFollowerCounts } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import Footer from '../components/Footer'
-import type { Article } from '../lib/supabase'
+import type { Article, FollowerCount } from '../lib/supabase'
 import styles from './PublicProfile.module.css'
 
 export default function PublicProfile() {
@@ -14,6 +14,7 @@ export default function PublicProfile() {
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [articles, setArticles] = useState<Article[]>([])
+  const [counts, setCounts] = useState<FollowerCount>({ followers: 0, following: 0 })
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -21,17 +22,19 @@ export default function PublicProfile() {
 
   const loadWriter = async (uid: string) => {
     try {
-      const profile = await getWriterProfile(uid)
-
-      // Load published articles regardless of whether profile exists
-      const { data } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('user_id', uid)
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
+      const [profile, followerCounts, { data }] = await Promise.all([
+        getWriterProfile(uid),
+        getFollowerCounts(uid),
+        supabase
+          .from('articles')
+          .select('*')
+          .eq('user_id', uid)
+          .eq('status', 'published')
+          .order('created_at', { ascending: false }),
+      ])
 
       const arts = data || []
+      setCounts(followerCounts)
 
       if (!profile && arts.length === 0) {
         setNotFound(true)
@@ -105,6 +108,10 @@ export default function PublicProfile() {
             <h1 className={styles.name}>{displayName}</h1>
             {bio && <p className={styles.bio}>{bio}</p>}
             <div className={styles.statRow}>
+              <span className={styles.stat}><strong>{counts.followers}</strong> Followers</span>
+              <span className={styles.statDot}>·</span>
+              <span className={styles.stat}><strong>{counts.following}</strong> Following</span>
+              <span className={styles.statDot}>·</span>
               <span className={styles.stat}><strong>{articles.length}</strong> article{articles.length !== 1 ? 's' : ''}</span>
               {totalWords > 0 && (
                 <>

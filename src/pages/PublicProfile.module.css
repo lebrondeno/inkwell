@@ -55,15 +55,15 @@
   border: 3px solid var(--accent-glow);
 }
 .profileInfo { flex: 1; min-width: 0; padding-top: 4px; }
-.name { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 700; margin: 0 0 10px; color: var(--text-primary); }
+.name { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 800; margin: 0 0 10px; color: var(--text-primary); letter-spacing: -0.025em; }
 .bio { font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 14px; max-width: 500px; }
 .statRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.stat { font-size: 14px; color: var(--text-muted); }
-.stat strong { color: var(--text-primary); font-weight: 600; }
+.stat { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+.stat strong { color: var(--text-primary); font-weight: 800; font-family: 'Playfair Display', Georgia, serif; font-size: 15px; }
 .statDot { color: var(--text-muted); font-size: 12px; }
 
 .divider { height: 1px; background: var(--border); margin-bottom: 36px; }
-.sectionTitle { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 24px; color: var(--text-primary); }
+.sectionTitle { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800; margin-bottom: 24px; color: var(--text-primary); }
 
 .empty {
   display: flex; flex-direction: column; align-items: center;
@@ -85,7 +85,7 @@
 .cardEmoji { font-size: 28px; }
 .cardDate { font-size: 11px; color: var(--text-muted); }
 .cardTitle {
-  font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600;
+  font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700;
   color: var(--text-primary); margin: 0; line-height: 1.4;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
