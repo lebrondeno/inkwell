@@ -276,52 +276,56 @@ Deno.serve(async (req: Request): Promise<Response> => {
     })
 
     const sendablePayloads = allPayloads.filter(p => Boolean(p.to))
+    const isConfiguredKey = Boolean(
+      resendApiKey &&
+        resendApiKey !== 're_your_key_here' &&
+        !resendApiKey.includes('your_key')
+    )
 
-    if (!resendApiKey) {
+    if (sendablePayloads.length === 0) {
       return jsonResponse({
         ok: true,
-        simulated: true,
-        count: sendablePayloads.length,
+        simulated: !isConfiguredKey,
+        count: 0,
+        logged: 0,
         mode,
       })
     }
 
-    if (sendablePayloads.length === 0) {
-      return jsonResponse({ ok: true, simulated: false, count: 0, mode })
-    }
+    if (isConfiguredKey) {
+      // 7. Dispatch via Resend batch API in chunks of up to 100 emails with Idempotency-Key
+      const batchSize = 100
+      const dateKey = new Date().toISOString().split('T')[0]
+      const entityKey = body.articleId || dateKey
 
-    // 7. Dispatch via Resend batch API in chunks of up to 100 emails with Idempotency-Key
-    const batchSize = 100
-    const dateKey = new Date().toISOString().split('T')[0]
-    const entityKey = body.articleId || dateKey
+      for (let i = 0; i < sendablePayloads.length; i += batchSize) {
+        const chunk = sendablePayloads.slice(i, i + batchSize)
+        const batchRequest = chunk.map(p => ({
+          from: fromEmail,
+          to: [p.to as string],
+          subject: p.subject,
+          html: p.html,
+          text: p.text,
+        }))
 
-    for (let i = 0; i < sendablePayloads.length; i += batchSize) {
-      const chunk = sendablePayloads.slice(i, i + batchSize)
-      const batchRequest = chunk.map(p => ({
-        from: fromEmail,
-        to: [p.to as string],
-        subject: p.subject,
-        html: p.html,
-        text: p.text,
-      }))
-
-      const chunkIdx = Math.floor(i / batchSize)
-      const idempotencyKey = `batch-digest/${mode}-${entityKey}-${chunkIdx}`
-      const resendResult = await sendResendBatchWithRetry(
-        resendApiKey,
-        batchRequest,
-        idempotencyKey
-      )
-
-      if (!resendResult.ok) {
-        return jsonResponse(
-          {
-            ok: false,
-            error: `Resend API error (${resendResult.status})`,
-            details: resendResult.bodyText,
-          },
-          502
+        const chunkIdx = Math.floor(i / batchSize)
+        const idempotencyKey = `batch-digest/${mode}-${entityKey}-${chunkIdx}`
+        const resendResult = await sendResendBatchWithRetry(
+          resendApiKey,
+          batchRequest,
+          idempotencyKey
         )
+
+        if (!resendResult.ok) {
+          return jsonResponse(
+            {
+              ok: false,
+              error: `Resend API error (${resendResult.status})`,
+              details: resendResult.bodyText,
+            },
+            502
+          )
+        }
       }
     }
 
@@ -330,7 +334,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       p.articleIds.map(articleId => ({
         follower_id: p.followerId,
         article_id: articleId,
-        mode,
         sent_at: new Date().toISOString(),
       }))
     )
@@ -343,7 +346,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     return jsonResponse({
       ok: true,
-      simulated: false,
+      simulated: !isConfiguredKey,
       count: sendablePayloads.length,
       logged: logRows.length,
       mode,
