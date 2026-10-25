@@ -7,6 +7,7 @@ import {
   getFollowingFeed,
   getUserBookmarks,
   toggleBookmark,
+  openGlobalSearch,
 } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import { formatDistanceToNow } from 'date-fns'
@@ -184,6 +185,18 @@ export default function Dashboard() {
           >
             <span>Reading List</span>
             {bookmarkedArticles.length > 0 && <span className={styles.tabBadge}>{bookmarkedArticles.length}</span>}
+          </button>
+
+          <button
+            type="button"
+            className={styles.feedSearchBtn}
+            onClick={() => openGlobalSearch()}
+            title="Search writers, articles, series, and communities (Ctrl+K)"
+            aria-label="Search writers, articles, series, and communities"
+          >
+            <span>🔍</span>
+            <span>Search</span>
+            <kbd className={styles.feedSearchKbd}>Ctrl K</kbd>
           </button>
         </div>
 

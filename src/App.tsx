@@ -1,22 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react'
 import { AppProvider, useApp } from './context/AppContext'
-import Landing          from './pages/Landing'
-import AppLayout        from './pages/AppLayout'
-import Dashboard        from './pages/Dashboard'
-import Articles         from './pages/Articles'
-import Editor           from './pages/Editor'
-import Analytics        from './pages/Analytics'
-import Profile          from './pages/Profile'
-import Bookmarks        from './pages/Bookmarks'
-import SeriesPage       from './pages/SeriesPage'
-import PublicDiscover   from './pages/PublicDiscover'
-import PublicArticle    from './pages/PublicArticle'
-import PublicProfile    from './pages/PublicProfile'
-import Communities      from './pages/community/Communities'
-import CommunityPage    from './pages/community/CommunityPage'
-import ResetPassword    from './pages/ResetPassword'
-import PwaUpdateBanner  from './components/PwaUpdateBanner'
+import Landing           from './pages/Landing'
+import AppLayout         from './pages/AppLayout'
+import Dashboard         from './pages/Dashboard'
+import Articles          from './pages/Articles'
+import Editor            from './pages/Editor'
+import Analytics         from './pages/Analytics'
+import Profile           from './pages/Profile'
+import Bookmarks         from './pages/Bookmarks'
+import SeriesPage        from './pages/SeriesPage'
+import PublicDiscover    from './pages/PublicDiscover'
+import PublicArticle     from './pages/PublicArticle'
+import PublicProfile     from './pages/PublicProfile'
+import Communities       from './pages/community/Communities'
+import CommunityPage     from './pages/community/CommunityPage'
+import ResetPassword     from './pages/ResetPassword'
+import PwaUpdateBanner   from './components/PwaUpdateBanner'
+import GlobalSearchModal from './components/GlobalSearchModal'
 
 function AppRoutes() {
   const { user, loading, isPasswordRecovery } = useApp()
@@ -81,6 +82,7 @@ export default function App() {
       <AppProvider>
         <VercelAnalytics />
         <AppRoutes />
+        <GlobalSearchModal />
         <PwaUpdateBanner />
       </AppProvider>
     </BrowserRouter>

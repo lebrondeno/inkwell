@@ -44,6 +44,14 @@ describe('Article Version History Snapshots', () => {
     glob.localStorage = mockStorage
     vi.restoreAllMocks()
     vi.spyOn(supabase, 'from').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [] }),
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: [] }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof supabase.from>)
+    vi.spyOn(supabase, 'from').mockReturnValue({
       insert: vi.fn().mockResolvedValue({ data: null, error: null }),
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -130,6 +138,14 @@ describe('Follow System & Self-Check Validation', () => {
     glob.localStorage = mockStorage
     vi.restoreAllMocks()
     vi.spyOn(supabase, 'from').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [] }),
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: [] }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof supabase.from>)
+    vi.spyOn(supabase, 'from').mockReturnValue({
       upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -210,6 +226,14 @@ describe('Writing Streak Calculation', () => {
     vi.restoreAllMocks()
     vi.spyOn(supabase, 'from').mockReturnValue({
       select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [] }),
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: [] }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof supabase.from>)
+    vi.spyOn(supabase, 'from').mockReturnValue({
+      select: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({ data: [] }),
       }),
     } as unknown as ReturnType<typeof supabase.from>)
@@ -273,5 +297,162 @@ describe('Writing Streak Calculation', () => {
     const streak = await getWritingStreak(userId)
     expect(streak.currentStreak).toBe(1)
     expect(streak.longestStreak).toBe(5)
+  })
+})
+
+
+describe('Global Unified Search (Writers, Articles, Series, Communities)', () => {
+  let mockStorage: ReturnType<typeof createMockLocalStorage>
+
+  beforeEach(() => {
+    mockStorage = createMockLocalStorage()
+    const glob = globalThis as unknown as Record<string, unknown>
+    glob.window = { localStorage: mockStorage }
+    glob.localStorage = mockStorage
+    vi.restoreAllMocks()
+    vi.spyOn(supabase, 'from').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [] }),
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: [] }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof supabase.from>)
+
+    // Seed local fallback data across all 4 entities
+    mockStorage.setItem(
+      'inkwell_profiles',
+      JSON.stringify([
+        {
+          id: 'writer-toni',
+          full_name: 'Toni Morrison',
+          bio: 'Nobel laureate novelist and essayist.',
+          avatar_url: '',
+        },
+        {
+          id: 'writer-james',
+          full_name: 'James Baldwin',
+          bio: 'Essayist, playwright, and literary voice.',
+          avatar_url: '',
+        },
+      ])
+    )
+
+    mockStorage.setItem(
+      'inkwell_articles',
+      JSON.stringify([
+        {
+          id: 'art-1',
+          user_id: 'writer-toni',
+          title: 'The Craft of Literary Memory',
+          summary: 'Exploring how memory shapes narrative structure.',
+          content: '<p>Deep reflections on solitude and prose.</p>',
+          status: 'published',
+          tags: ['craft', 'memoir'],
+          slug: 'craft-of-literary-memory',
+          word_count: 1200,
+          reading_time: 5,
+          cover_emoji: '✒️',
+          created_at: '2026-10-20T10:00:00Z',
+          updated_at: '2026-10-20T10:00:00Z',
+        },
+        {
+          id: 'art-draft',
+          user_id: 'writer-james',
+          title: 'Unpublished Notes on Paris',
+          summary: 'Private draft notes.',
+          content: '<p>Drafting in a cafe.</p>',
+          status: 'draft',
+          tags: ['paris'],
+          slug: 'unpublished-notes-on-paris',
+          word_count: 400,
+          reading_time: 2,
+          cover_emoji: '📝',
+          created_at: '2026-10-21T10:00:00Z',
+          updated_at: '2026-10-21T10:00:00Z',
+        },
+      ])
+    )
+
+    mockStorage.setItem(
+      'inkwell_series',
+      JSON.stringify([
+        {
+          id: 'series-1',
+          user_id: 'writer-toni',
+          title: 'Letters to a Young Novelist',
+          description: 'A multi-part series on discipline and voice.',
+          cover_emoji: '📚',
+          created_at: '2026-10-19T10:00:00Z',
+        },
+      ])
+    )
+
+    mockStorage.setItem(
+      'inkwell_communities',
+      JSON.stringify([
+        {
+          id: 'comm-1',
+          name: 'Poets & Essayists Guild',
+          slug: 'poets-and-essayists',
+          description: 'A literary salon for long-form essays and poetry.',
+          emoji: '🏛️',
+          category: 'Literature',
+          created_by: 'writer-toni',
+          created_at: '2026-10-18T10:00:00Z',
+        },
+      ])
+    )
+  })
+
+  afterEach(() => {
+    const glob = globalThis as unknown as Record<string, unknown>
+    delete glob.window
+    delete glob.localStorage
+  })
+
+  it('returns curated initial discovery set when query is empty', async () => {
+    const { globalSearch } = await import('./supabase')
+    const res = await globalSearch('')
+    expect(res.writers.length).toBeGreaterThanOrEqual(2)
+    expect(res.articles.length).toBe(1) // only published when currentUserId is omitted
+    expect(res.series.length).toBe(1)
+    expect(res.communities.length).toBe(1)
+  })
+
+  it('matches writers by name or bio and articles by title, tag, or content', async () => {
+    const { globalSearch } = await import('./supabase')
+
+    const writerSearch = await globalSearch('Morrison')
+    expect(writerSearch.writers).toHaveLength(1)
+    expect(writerSearch.writers[0].full_name).toBe('Toni Morrison')
+
+    const tagSearch = await globalSearch('memoir')
+    expect(tagSearch.articles).toHaveLength(1)
+    expect(tagSearch.articles[0].slug).toBe('craft-of-literary-memory')
+    expect(tagSearch.articles[0].author?.full_name).toBe('Toni Morrison')
+  })
+
+  it('includes current user drafts in article search results', async () => {
+    const { globalSearch } = await import('./supabase')
+
+    const anonSearch = await globalSearch('Paris')
+    expect(anonSearch.articles).toHaveLength(0)
+
+    const ownerSearch = await globalSearch('Paris', 'writer-james')
+    expect(ownerSearch.articles).toHaveLength(1)
+    expect(ownerSearch.articles[0].id).toBe('art-draft')
+  })
+
+  it('matches series by title/description and communities by name/category', async () => {
+    const { globalSearch } = await import('./supabase')
+
+    const seriesRes = await globalSearch('Novelist')
+    expect(seriesRes.series).toHaveLength(1)
+    expect(seriesRes.series[0].title).toBe('Letters to a Young Novelist')
+
+    const commRes = await globalSearch('Salon')
+    expect(commRes.communities).toHaveLength(1)
+    expect(commRes.communities[0].slug).toBe('poets-and-essayists')
   })
 })

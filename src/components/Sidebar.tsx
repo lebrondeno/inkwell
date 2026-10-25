@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { supabase, getNotifications, getWritingStreak } from '../lib/supabase'
+import { supabase, getNotifications, getWritingStreak, openGlobalSearch } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 import NotificationDrawer from './NotificationDrawer'
 import styles from './Sidebar.module.css'
@@ -100,6 +100,11 @@ export default function Sidebar({
     }
   }
 
+  const handleSearchClick = () => {
+    onClose?.()
+    openGlobalSearch()
+  }
+
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Writer'
   const initials    = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
   const isActive    = (path: string) => path === '/app' ? location.pathname === '/app' : location.pathname.startsWith(path)
@@ -124,7 +129,7 @@ export default function Sidebar({
             onKeyDown={e => { if (e.key === 'Enter') handleNavClick('/app') }}
             title="Inkwell Dashboard"
           >
-            <img src="/favicon.svg" alt="Inkwell" className={styles.brandMark} />
+            <img src="/favicon.svg?v=10" alt="Inkwell" className={styles.brandMark} />
             <span className={styles.name}>Inkwell</span>
           </div>
           <button
@@ -168,6 +173,21 @@ export default function Sidebar({
               {theme === 'dark' ? '☀' : '☾'}
             </button>
           </div>
+        </div>
+
+        {/* Prominent Global Search Trigger Button */}
+        <div className={styles.searchWrap}>
+          <button
+            type="button"
+            className={styles.searchTriggerBtn}
+            onClick={handleSearchClick}
+            title="Search writers, articles, series, and communities (Ctrl+K)"
+            aria-label="Search writers, articles, series, and communities"
+          >
+            <span className={styles.searchIcon}>🔍</span>
+            <span className={styles.searchPlaceholder}>Search writers, articles…</span>
+            <kbd className={styles.searchShortcut}>Ctrl K</kbd>
+          </button>
         </div>
 
         {/* Navigation items */}

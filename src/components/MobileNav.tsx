@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { openGlobalSearch } from '../lib/supabase'
 import styles from './MobileNav.module.css'
 
 interface MobileNavProps {
@@ -49,12 +50,22 @@ export default function MobileNav({
             onKeyDown={e => { if (e.key === 'Enter') navigate('/app') }}
             title="Inkwell Dashboard"
           >
-            <img src="/favicon.svg" alt="Inkwell" className={styles.brandMark} />
+            <img src="/favicon.svg?v=10" alt="Inkwell" className={styles.brandMark} />
             <span className={styles.brandName}>Inkwell</span>
           </div>
         </div>
 
         <div className={styles.topBarRight}>
+          <button
+            type="button"
+            className={styles.searchBtn}
+            onClick={() => openGlobalSearch()}
+            aria-label="Search Inkwell"
+            title="Search writers, articles, series, and communities"
+          >
+            🔍
+          </button>
+
           <div
             className={styles.streakPill}
             title={`Writing Streak: ${streakDays} day${streakDays === 1 ? '' : 's'}`}

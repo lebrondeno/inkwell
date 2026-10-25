@@ -1250,3 +1250,279 @@ export async function getWritingStreak(userId: string): Promise<WritingStreak> {
     lastActiveDate
   }
 }
+
+
+// ── Global Unified Search (Writers, Articles, Series, Communities) ──
+export interface SearchWriterResult {
+  id: string
+  full_name: string
+  name: string
+  bio: string
+  avatar_url: string
+  follower_count: number
+  is_following: boolean
+  created_at?: string
+}
+
+export interface GlobalSearchResult {
+  writers: SearchWriterResult[]
+  articles: Article[]
+  series: Series[]
+  communities: Community[]
+}
+
+export async function globalSearch(
+  query: string,
+  currentUserId?: string
+): Promise<GlobalSearchResult> {
+  const q = (query || '').trim().toLowerCase()
+  const ls = safeLocalStorage()
+
+  // 1. Collect follows (Supabase + localStorage) to compute follower_count & is_following
+  let allFollows: WriterFollow[] = []
+  try {
+    const { data: followRows } = await supabase
+      .from('follows')
+      .select('follower_id, following_id, created_at')
+    if (Array.isArray(followRows)) {
+      allFollows = [...followRows] as WriterFollow[]
+    }
+  } catch {
+    /* ignore error */
+  }
+  if (ls) {
+    try {
+      const localFollows = JSON.parse(ls.getItem('inkwell_follows') || '[]') as WriterFollow[]
+      for (const lf of localFollows) {
+        if (!allFollows.some(f => f.follower_id === lf.follower_id && f.following_id === lf.following_id)) {
+          allFollows.push(lf)
+        }
+      }
+    } catch {
+      /* ignore error */
+    }
+  }
+
+  // 2. Collect Writers (writer_profiles + localStorage inkwell_profiles)
+  const writerMap = new Map<string, WriterProfile & { name?: string; handle?: string }>()
+  try {
+    const { data: profileRows } = await supabase
+      .from('writer_profiles')
+      .select('id, full_name, bio, avatar_url, created_at')
+      .limit(50)
+    if (Array.isArray(profileRows)) {
+      for (const p of profileRows) {
+        if (p && p.id) writerMap.set(p.id, p as WriterProfile)
+      }
+    }
+  } catch {
+    /* ignore error */
+  }
+  if (ls) {
+    try {
+      const localProfiles = JSON.parse(ls.getItem('inkwell_profiles') || '[]') as (WriterProfile & { name?: string; handle?: string })[]
+      for (const p of localProfiles) {
+        if (p && p.id && !writerMap.has(p.id)) {
+          writerMap.set(p.id, {
+            id: p.id,
+            full_name: p.full_name || p.name || 'Inkwell Writer',
+            bio: p.bio || '',
+            avatar_url: p.avatar_url || '',
+            created_at: p.created_at || new Date().toISOString(),
+            name: p.name || p.full_name,
+            handle: p.handle,
+          })
+        }
+      }
+    } catch {
+      /* ignore error */
+    }
+  }
+
+  // 3. Collect Articles (Supabase + localStorage inkwell_articles)
+  const articleMap = new Map<string, Article>()
+  try {
+    const { data: articleRows } = await supabase
+      .from('articles')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (Array.isArray(articleRows)) {
+      for (const a of articleRows as Article[]) {
+        if (a && a.id && (a.status === 'published' || (currentUserId && a.user_id === currentUserId))) {
+          articleMap.set(a.id, a)
+        }
+      }
+    }
+  } catch {
+    /* ignore error */
+  }
+  if (ls) {
+    try {
+      const localArticles = JSON.parse(ls.getItem('inkwell_articles') || '[]') as Article[]
+      for (const a of localArticles) {
+        if (a && a.id && !articleMap.has(a.id)) {
+          if (a.status === 'published' || (currentUserId && a.user_id === currentUserId)) {
+            articleMap.set(a.id, a)
+          }
+        }
+      }
+    } catch {
+      /* ignore error */
+    }
+  }
+
+  // Also infer writers from articles if not in writerMap
+  for (const art of articleMap.values()) {
+    if (art.author && art.author.id && !writerMap.has(art.author.id)) {
+      writerMap.set(art.author.id, art.author)
+    }
+  }
+
+  // Enrich articles with author profile
+  const enrichedArticles: Article[] = Array.from(articleMap.values()).map(art => ({
+    ...art,
+    author: art.author || writerMap.get(art.user_id) || null,
+  }))
+
+  // 4. Collect Series (Supabase + localStorage inkwell_series & inkwell_series_*)
+  const seriesMap = new Map<string, Series>()
+  try {
+    const { data: seriesRows } = await supabase
+      .from('series')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(40)
+    if (Array.isArray(seriesRows)) {
+      for (const s of seriesRows as Series[]) {
+        if (s && s.id) seriesMap.set(s.id, s)
+      }
+    }
+  } catch {
+    /* ignore error */
+  }
+  if (ls) {
+    try {
+      const directSeries = JSON.parse(ls.getItem('inkwell_series') || '[]') as Series[]
+      for (const s of directSeries) {
+        if (s && s.id && !seriesMap.has(s.id)) seriesMap.set(s.id, s)
+      }
+      for (let i = 0; i < ls.length; i++) {
+        const key = ls.key(i)
+        if (key && key.startsWith('inkwell_series_')) {
+          const userSeries = JSON.parse(ls.getItem(key) || '[]') as Series[]
+          for (const s of userSeries) {
+            if (s && s.id && !seriesMap.has(s.id)) seriesMap.set(s.id, s)
+          }
+        }
+      }
+    } catch {
+      /* ignore error */
+    }
+  }
+
+  // 5. Collect Communities (Supabase + localStorage inkwell_communities)
+  const communityMap = new Map<string, Community>()
+  try {
+    const { data: commRows } = await supabase
+      .from('communities')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(40)
+    if (Array.isArray(commRows)) {
+      for (const c of commRows as Community[]) {
+        if (c && c.id) communityMap.set(c.id, c)
+      }
+    }
+  } catch {
+    /* ignore error */
+  }
+  if (ls) {
+    try {
+      const localComms = JSON.parse(ls.getItem('inkwell_communities') || '[]') as Community[]
+      for (const c of localComms) {
+        if (c && c.id && !communityMap.has(c.id)) communityMap.set(c.id, c)
+      }
+    } catch {
+      /* ignore error */
+    }
+  }
+
+  // Build enriched writers array
+  const allWriters: SearchWriterResult[] = Array.from(writerMap.values()).map(w => {
+    const fullName = w.full_name || w.name || 'Inkwell Writer'
+    const followerCount = allFollows.filter(f => f.following_id === w.id).length
+    const isFollowing = currentUserId
+      ? allFollows.some(f => f.follower_id === currentUserId && f.following_id === w.id)
+      : false
+    return {
+      id: w.id,
+      full_name: fullName,
+      name: fullName,
+      bio: w.bio || '',
+      avatar_url: w.avatar_url || '',
+      follower_count: followerCount,
+      is_following: isFollowing,
+      created_at: w.created_at,
+    }
+  })
+
+  const allSeries = Array.from(seriesMap.values())
+  const allCommunities = Array.from(communityMap.values())
+
+  // If query is empty, return curated initial discovery set
+  if (!q) {
+    return {
+      writers: allWriters.slice(0, 8),
+      articles: enrichedArticles.slice(0, 8),
+      series: allSeries.slice(0, 8),
+      communities: allCommunities.slice(0, 8),
+    }
+  }
+
+  // Filter across all 4 categories
+  const matchedWriters = allWriters.filter(w => {
+    const nameMatch = (w.full_name || '').toLowerCase().includes(q)
+    const bioMatch = (w.bio || '').toLowerCase().includes(q)
+    const idMatch = (w.id || '').toLowerCase().includes(q)
+    return nameMatch || bioMatch || idMatch
+  })
+
+  const matchedArticles = enrichedArticles.filter(a => {
+    const titleMatch = (a.title || '').toLowerCase().includes(q)
+    const summaryMatch = (a.summary || '').toLowerCase().includes(q)
+    const tagMatch = Array.isArray(a.tags) && a.tags.some(t => (t || '').toLowerCase().includes(q))
+    const plainContent = (a.content || '').replace(/<[^>]*>/g, ' ').toLowerCase()
+    const contentMatch = plainContent.includes(q)
+    const authorMatch = (a.author?.full_name || '').toLowerCase().includes(q)
+    return titleMatch || summaryMatch || tagMatch || contentMatch || authorMatch
+  })
+
+  const matchedSeries = allSeries.filter(s => {
+    const titleMatch = (s.title || '').toLowerCase().includes(q)
+    const descMatch = (s.description || '').toLowerCase().includes(q)
+    return titleMatch || descMatch
+  })
+
+  const matchedCommunities = allCommunities.filter(c => {
+    const nameMatch = (c.name || '').toLowerCase().includes(q)
+    const descMatch = (c.description || '').toLowerCase().includes(q)
+    const catMatch = (c.category || '').toLowerCase().includes(q)
+    const slugMatch = (c.slug || '').toLowerCase().includes(q)
+    return nameMatch || descMatch || catMatch || slugMatch
+  })
+
+  return {
+    writers: matchedWriters,
+    articles: matchedArticles,
+    series: matchedSeries,
+    communities: matchedCommunities,
+  }
+}
+
+
+export function openGlobalSearch(initialQuery = ''): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('inkwell:open-search', { detail: { query: initialQuery } }))
+  }
+}
