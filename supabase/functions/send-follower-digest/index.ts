@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import nodemailer from 'nodemailer'
 import {
   buildFeatureAnnouncementEmail,
   buildNewFollowerEmail,
@@ -51,6 +52,32 @@ interface FollowRow {
   follower_id: string
   following_id: string
   email_digest?: boolean
+}
+
+interface EmailRuntimeConfig {
+  resendApiKey: string
+  fromEmail: string
+  gmailUser: string
+  gmailAppPassword: string
+  hasResend: boolean
+  hasGmail: boolean
+}
+
+interface SendEmailParams {
+  to: string
+  subject: string
+  html: string
+  text: string
+  idempotencyKey: string
+  config: EmailRuntimeConfig
+  transporter?: ReturnType<typeof nodemailer.createTransport> | null
+}
+
+interface SendEmailResult {
+  ok: boolean
+  provider: 'gmail_smtp' | 'resend' | 'simulated' | 'none'
+  status: number
+  details?: unknown
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
@@ -114,50 +141,146 @@ async function sendResendSingleWithRetry(
   return { ok: false, status: 500, bodyText: 'Max retry attempts reached' }
 }
 
-async function sendResendBatchWithRetry(
-  resendApiKey: string,
-  batchPayload: Array<{
-    from: string
-    to: string[]
-    subject: string
-    html: string
-    text: string
-  }>,
-  idempotencyKey: string
-): Promise<{ ok: boolean; status: number; bodyText: string }> {
-  const maxAttempts = 3
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch('https://api.resend.com/emails/batch', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey.slice(0, 256),
-      },
-      body: JSON.stringify(batchPayload),
+function createGmailTransporter(config: EmailRuntimeConfig) {
+  if (!config.hasGmail) return null
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: config.gmailUser,
+      pass: config.gmailAppPassword,
+    },
+  })
+}
+
+async function sendViaGmailSmtp(
+  params: SendEmailParams
+): Promise<{ ok: boolean; messageId?: string; error?: string }> {
+  const { to, subject, html, text, config } = params
+  try {
+    const transporter = params.transporter || createGmailTransporter(config)
+    if (!transporter) {
+      return { ok: false, error: 'Gmail transporter not configured' }
+    }
+    const info = await transporter.sendMail({
+      from: `Inkwell <${config.gmailUser}>`,
+      to,
+      subject,
+      html,
+      text,
     })
+    return { ok: true, messageId: info?.messageId || 'sent' }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, error: msg }
+  }
+}
 
-    const bodyText = await res.text().catch(() => '')
+export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
+  const { to, subject, html, text, idempotencyKey, config } = params
 
-    if (res.ok) {
-      return { ok: true, status: res.status, bodyText }
+  if (!config.hasGmail && !config.hasResend) {
+    return {
+      ok: true,
+      provider: 'simulated',
+      status: 200,
+      details: { simulated: true },
     }
-
-    const isRetryable = res.status === 429 || res.status >= 500
-    if (!isRetryable || attempt === maxAttempts) {
-      return { ok: false, status: res.status, bodyText }
-    }
-
-    const retryAfterHeader = res.headers.get('retry-after')
-    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN
-    const delayMs = !Number.isNaN(retryAfterSeconds) && retryAfterSeconds > 0
-      ? retryAfterSeconds * 1000
-      : Math.pow(2, attempt - 1) * 1000
-
-    await sleep(delayMs)
   }
 
-  return { ok: false, status: 500, bodyText: 'Max retry attempts reached' }
+  const isResendSandbox = config.fromEmail.toLowerCase().includes('onboarding@resend.dev')
+
+  // If Gmail SMTP is configured and Resend is in sandbox mode (or not configured),
+  // use Gmail SMTP directly so every external recipient receives the email cleanly.
+  if (config.hasGmail && (isResendSandbox || !config.hasResend)) {
+    const gmailRes = await sendViaGmailSmtp(params)
+    if (gmailRes.ok) {
+      return {
+        ok: true,
+        provider: 'gmail_smtp',
+        status: 200,
+        details: { messageId: gmailRes.messageId },
+      }
+    }
+    // If Gmail failed and Resend is available, fall through to try Resend
+    if (!config.hasResend) {
+      return {
+        ok: false,
+        provider: 'gmail_smtp',
+        status: 502,
+        details: gmailRes.error,
+      }
+    }
+  }
+
+  // Otherwise try Resend first, and fall back to Gmail SMTP on 403 sandbox or error
+  if (config.hasResend) {
+    const resendRes = await sendResendSingleWithRetry(
+      config.resendApiKey,
+      {
+        from: config.fromEmail,
+        to: [to],
+        subject,
+        html,
+        text,
+      },
+      idempotencyKey
+    )
+
+    if (resendRes.ok) {
+      let parsed: unknown = resendRes.bodyText
+      try {
+        parsed = JSON.parse(resendRes.bodyText)
+      } catch {
+        /* keep text */
+      }
+      return {
+        ok: true,
+        provider: 'resend',
+        status: resendRes.status,
+        details: parsed,
+      }
+    }
+
+    if (config.hasGmail) {
+      const gmailFallback = await sendViaGmailSmtp(params)
+      if (gmailFallback.ok) {
+        return {
+          ok: true,
+          provider: 'gmail_smtp',
+          status: 200,
+          details: {
+            messageId: gmailFallback.messageId,
+            fallbackFromResendStatus: resendRes.status,
+          },
+        }
+      }
+      return {
+        ok: false,
+        provider: 'gmail_smtp',
+        status: 502,
+        details: {
+          resendError: resendRes.bodyText,
+          gmailError: gmailFallback.error,
+        },
+      }
+    }
+
+    return {
+      ok: false,
+      provider: 'resend',
+      status: resendRes.status,
+      details: resendRes.bodyText,
+    }
+  }
+
+  return {
+    ok: false,
+    provider: 'none',
+    status: 500,
+    details: 'No email transport available',
+  }
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -172,9 +295,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    const resendApiKey = Deno.env.get('RESEND_API_KEY') || ''
+    const resendApiKey = (Deno.env.get('RESEND_API_KEY') || '').trim()
     const fromEmail =
-      Deno.env.get('DIGEST_FROM_EMAIL') || 'Inkwell <onboarding@resend.dev>'
+      (Deno.env.get('DIGEST_FROM_EMAIL') || '').trim() ||
+      'Inkwell <onboarding@resend.dev>'
+    const gmailUser = (Deno.env.get('GMAIL_USER') || '').trim()
+    const gmailAppPassword = (Deno.env.get('GMAIL_APP_PASSWORD') || '')
+      .replace(/\s+/g, '')
+      .trim()
 
     if (!supabaseUrl || !serviceRoleKey) {
       return jsonResponse(
@@ -183,6 +311,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
+    const hasResend = Boolean(
+      resendApiKey &&
+        resendApiKey !== 're_your_key_here' &&
+        !resendApiKey.includes('your_key')
+    )
+    const hasGmail = Boolean(gmailUser && gmailAppPassword)
+
+    const emailConfig: EmailRuntimeConfig = {
+      resendApiKey,
+      fromEmail,
+      gmailUser,
+      gmailAppPassword,
+      hasResend,
+      hasGmail,
+    }
+
+    const transporter = createGmailTransporter(emailConfig)
+
     const body = (await req.json().catch(() => ({}))) as DigestRequestBody
     const rawMode = body.mode || 'instant'
     const appUrl =
@@ -190,11 +336,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       Deno.env.get('PUBLIC_APP_URL') ||
       'https://inkwell-chi-smoky.vercel.app'
 
-    const isConfiguredKey = Boolean(
-      resendApiKey &&
-        resendApiKey !== 're_your_key_here' &&
-        !resendApiKey.includes('your_key')
-    )
+    const isSimulated = !hasResend && !hasGmail
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -251,33 +393,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
         appUrl,
       })
 
-      if (!isConfiguredKey) {
-        return jsonResponse({
-          ok: true,
-          mode: 'new_follower',
-          simulated: true,
-          count: 1,
-          to: recipientEmail,
-          totalFollowers,
-        })
-      }
-
       const minuteWindow = new Date().toISOString().slice(0, 16)
       const idempotencyKey = `new-follower/${followingId}-${followerId}-${minuteWindow}`
-      const sendRes = await sendResendSingleWithRetry(
-        resendApiKey,
-        {
-          from: fromEmail,
-          to: [recipientEmail],
-          subject: emailTemplate.subject,
-          html: emailTemplate.html,
-          text: emailTemplate.text,
-        },
-        idempotencyKey
-      )
 
-      if (!sendRes.ok) {
-        if (sendRes.status === 403) {
+      const sendResult = await sendEmail({
+        to: recipientEmail,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        idempotencyKey,
+        config: emailConfig,
+        transporter,
+      })
+
+      if (!sendResult.ok) {
+        if (sendResult.status === 403) {
           return jsonResponse({
             ok: true,
             mode: 'new_follower',
@@ -285,34 +415,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
             count: 0,
             skippedSandbox: 1,
             message: 'Recipient skipped due to Resend sandbox restriction',
-            details: sendRes.bodyText,
+            details: sendResult.details,
           })
         }
         return jsonResponse(
           {
             ok: false,
-            error: `Resend API error (${sendRes.status})`,
-            details: sendRes.bodyText,
+            error: `Email delivery error (${sendResult.status})`,
+            provider: sendResult.provider,
+            details: sendResult.details,
           },
           502
         )
       }
 
-      let resendData: unknown = null
-      try {
-        resendData = JSON.parse(sendRes.bodyText)
-      } catch {
-        resendData = sendRes.bodyText
-      }
-
       return jsonResponse({
         ok: true,
         mode: 'new_follower',
-        simulated: false,
+        simulated: sendResult.provider === 'simulated',
+        provider: sendResult.provider,
         count: 1,
         to: recipientEmail,
         totalFollowers,
-        resend: resendData,
+        delivery: sendResult.details,
       })
     }
 
@@ -349,7 +474,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return jsonResponse({
           ok: true,
           mode: 'feature_announcement',
-          simulated: !isConfiguredKey,
+          simulated: isSimulated,
           totalUsers: 0,
           sent: 0,
           skippedSandbox: 0,
@@ -361,6 +486,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const results: Array<{
         userId: string
         email: string
+        provider: string
         status: 'sent' | 'simulated' | 'skipped_sandbox' | 'failed'
         details?: unknown
       }> = []
@@ -379,48 +505,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
           appUrl,
         })
 
-        if (!isConfiguredKey) {
-          sentCount++
-          results.push({ userId: user.id, email, status: 'simulated' })
-          continue
-        }
-
         const idempotencyKey = `feature-announcement/${user.id}-${dateKey}`
-        const sendRes = await sendResendSingleWithRetry(
-          resendApiKey,
-          {
-            from: fromEmail,
-            to: [email],
-            subject: template.subject,
-            html: template.html,
-            text: template.text,
-          },
-          idempotencyKey
-        )
+        const sendResult = await sendEmail({
+          to: email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          idempotencyKey,
+          config: emailConfig,
+          transporter,
+        })
 
-        if (sendRes.ok) {
+        if (sendResult.ok) {
           sentCount++
-          let parsed: unknown = sendRes.bodyText
-          try {
-            parsed = JSON.parse(sendRes.bodyText)
-          } catch {
-            /* keep text */
-          }
-          results.push({ userId: user.id, email, status: 'sent', details: parsed })
-        } else if (sendRes.status === 403) {
+          results.push({
+            userId: user.id,
+            email,
+            provider: sendResult.provider,
+            status: sendResult.provider === 'simulated' ? 'simulated' : 'sent',
+            details: sendResult.details,
+          })
+        } else if (sendResult.status === 403) {
           skippedSandbox++
           results.push({
             userId: user.id,
             email,
+            provider: sendResult.provider,
             status: 'skipped_sandbox',
-            details: sendRes.bodyText,
+            details: sendResult.details,
           })
         } else {
           results.push({
             userId: user.id,
             email,
+            provider: sendResult.provider,
             status: 'failed',
-            details: sendRes.bodyText,
+            details: sendResult.details,
           })
         }
       }
@@ -428,7 +548,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonResponse({
         ok: true,
         mode: 'feature_announcement',
-        simulated: !isConfiguredKey,
+        simulated: isSimulated,
         totalUsers: recipients.length,
         sent: sentCount,
         skippedSandbox,
@@ -577,52 +697,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (sendablePayloads.length === 0) {
       return jsonResponse({
         ok: true,
-        simulated: !isConfiguredKey,
+        simulated: isSimulated,
         count: 0,
         logged: 0,
         mode,
       })
     }
 
-    if (isConfiguredKey) {
-      // 7. Dispatch via Resend batch API in chunks of up to 100 emails with Idempotency-Key
-      const batchSize = 100
-      const dateKey = new Date().toISOString().split('T')[0]
-      const entityKey = body.articleId || dateKey
+    // 7. Dispatch each follower digest via unified sendEmail (Gmail SMTP / Resend with fallback)
+    const dateKey = new Date().toISOString().split('T')[0]
+    const entityKey = body.articleId || dateKey
+    const deliveredPayloads: typeof sendablePayloads = []
+    const deliveryResults: Array<{
+      followerId: string
+      to: string
+      provider: string
+      ok: boolean
+      details?: unknown
+    }> = []
 
-      for (let i = 0; i < sendablePayloads.length; i += batchSize) {
-        const chunk = sendablePayloads.slice(i, i + batchSize)
-        const batchRequest = chunk.map(p => ({
-          from: fromEmail,
-          to: [p.to as string],
-          subject: p.subject,
-          html: p.html,
-          text: p.text,
-        }))
+    for (const p of sendablePayloads) {
+      const idempotencyKey = `digest/${mode}-${entityKey}-${p.followerId}`
+      const sendResult = await sendEmail({
+        to: p.to as string,
+        subject: p.subject,
+        html: p.html,
+        text: p.text,
+        idempotencyKey,
+        config: emailConfig,
+        transporter,
+      })
 
-        const chunkIdx = Math.floor(i / batchSize)
-        const idempotencyKey = `batch-digest/${mode}-${entityKey}-${chunkIdx}`
-        const resendResult = await sendResendBatchWithRetry(
-          resendApiKey,
-          batchRequest,
-          idempotencyKey
-        )
+      deliveryResults.push({
+        followerId: p.followerId,
+        to: p.to as string,
+        provider: sendResult.provider,
+        ok: sendResult.ok,
+        details: sendResult.details,
+      })
 
-        if (!resendResult.ok) {
-          return jsonResponse(
-            {
-              ok: false,
-              error: `Resend API error (${resendResult.status})`,
-              details: resendResult.bodyText,
-            },
-            502
-          )
-        }
+      if (sendResult.ok) {
+        deliveredPayloads.push(p)
       }
     }
 
     // 8. Record sent (follower_id, article_id) pairs in public.digest_logs
-    const logRows = sendablePayloads.flatMap(p =>
+    const logRows = deliveredPayloads.flatMap(p =>
       p.articleIds.map(articleId => ({
         follower_id: p.followerId,
         article_id: articleId,
@@ -638,10 +758,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     return jsonResponse({
       ok: true,
-      simulated: !isConfiguredKey,
-      count: sendablePayloads.length,
+      simulated: isSimulated,
+      count: deliveredPayloads.length,
       logged: logRows.length,
       mode,
+      deliveries: deliveryResults,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal Edge Function error'
