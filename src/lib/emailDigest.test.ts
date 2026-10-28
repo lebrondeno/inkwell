@@ -210,7 +210,7 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
         appUrl: 'https://inkwell.example.com/',
       })
 
-      expect(email.subject).toBe('✦ Someone new just followed you on Inkwell!')
+      expect(email.subject).toBe('New follower on Inkwell')
       expect(email.html).toContain('Hello Clara Vance,')
       expect(email.html).toContain('Someone new just followed your writing on Inkwell')
       expect(email.html).toContain('12 Readers Follow Your Work')
@@ -226,7 +226,7 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       })
 
       expect(email.subject).toBe(
-        "✦ What's New on Inkwell: Followers, Daily Streaks, Series & Search"
+        'Inkwell update: Followers, daily streaks, series, and search'
       )
       expect(email.html).toContain('Hello Dennis,')
       expect(email.html).toContain('Follow Writers &amp; Email Digests')
@@ -248,7 +248,7 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       })
 
       expect(email.subject).toBe(
-        "✦ Welcome to Inkwell — Your Writer's Sanctuary Awaits"
+        'Welcome to Inkwell, Elena Vance'
       )
       expect(email.html).not.toContain('<b>Elena Vance</b>')
       expect(email.html).toContain('Welcome to Inkwell, &lt;b&gt;Elena Vance&lt;/b&gt;,')
@@ -259,11 +259,11 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       expect(email.html).toContain(
         'https://inkwell.example.com/app?for=elena%40example.com&uid=uid-elena-1'
       )
-      expect(email.html).toContain('This email was sent to <strong>elena@example.com</strong>')
+      expect(email.html).toContain('Sent to <strong>elena@example.com</strong> by Inkwell')
       expect(email.text).toContain(
         "Open Your Writer's Desk → https://inkwell.example.com/app?for=elena%40example.com&uid=uid-elena-1"
       )
-      expect(email.text).toContain('This email was sent to elena@example.com')
+      expect(email.text).toContain('Sent to elena@example.com by Inkwell')
     })
 
     it('includes recipientEmail and recipientUserId in CTA links and footer across new follower, feature announcement, and digest templates', () => {
@@ -277,8 +277,8 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       expect(followerEmail.html).toContain(
         'https://inkwell.example.com/app?notifications=open&for=clara%40example.com&uid=uid-clara'
       )
-      expect(followerEmail.html).toContain('This email was sent to <strong>clara@example.com</strong>')
-      expect(followerEmail.text).toContain('This email was sent to clara@example.com')
+      expect(followerEmail.html).toContain('Sent to <strong>clara@example.com</strong> by Inkwell')
+      expect(followerEmail.text).toContain('Sent to clara@example.com by Inkwell')
 
       const announcementEmail = buildFeatureAnnouncementEmail({
         recipientName: 'Dennis',
@@ -289,7 +289,7 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       expect(announcementEmail.html).toContain(
         'https://inkwell.example.com/app?for=dennis%40example.com&uid=uid-dennis'
       )
-      expect(announcementEmail.html).toContain('This email was sent to <strong>dennis@example.com</strong>')
+      expect(announcementEmail.html).toContain('Sent to <strong>dennis@example.com</strong> by Inkwell')
 
       const digestHtml = buildDigestHtml({
         articles: [sampleArticle],
@@ -301,7 +301,7 @@ describe('Email Digest Builder (src/lib/emailDigest.ts)', () => {
       expect(digestHtml).toContain(
         'https://inkwell.example.com/app/profile?for=reader%40example.com&uid=uid-reader'
       )
-      expect(digestHtml).toContain('This email was sent to <strong>reader@example.com</strong>')
+      expect(digestHtml).toContain('Sent to <strong>reader@example.com</strong> by Inkwell')
     })
   })
 

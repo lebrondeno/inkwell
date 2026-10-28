@@ -75,6 +75,7 @@ interface SendEmailParams {
   idempotencyKey: string
   config: EmailRuntimeConfig
   transporter?: ReturnType<typeof nodemailer.createTransport> | null
+  appUrl?: string
 }
 
 interface SendEmailResult {
@@ -161,7 +162,9 @@ function createGmailTransporter(config: EmailRuntimeConfig) {
 async function sendViaGmailSmtp(
   params: SendEmailParams
 ): Promise<{ ok: boolean; messageId?: string; error?: string }> {
-  const { to, subject, html, text, config } = params
+  const { to, subject, html, text, config, idempotencyKey } = params
+  const appUrl = (params.appUrl || 'https://inkwell-chi-smoky.vercel.app').replace(/\/+$/, '')
+  const entityRefId = idempotencyKey || crypto.randomUUID()
   try {
     const transporter = params.transporter || createGmailTransporter(config)
     if (!transporter) {
@@ -169,10 +172,16 @@ async function sendViaGmailSmtp(
     }
     const info = await transporter.sendMail({
       from: `Inkwell <${config.gmailUser}>`,
+      replyTo: config.gmailUser,
       to,
       subject,
       html,
       text,
+      headers: {
+        'X-Entity-Ref-ID': entityRefId,
+        'List-Unsubscribe': `<${appUrl}/app/profile>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
     })
     return { ok: true, messageId: info?.messageId || 'sent' }
   } catch (err) {
@@ -220,6 +229,8 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
   // Otherwise try Resend first, and fall back to Gmail SMTP on 403 sandbox or error
   if (config.hasResend) {
+    const appUrl = (params.appUrl || 'https://inkwell-chi-smoky.vercel.app').replace(/\/+$/, '')
+    const entityRefId = idempotencyKey || crypto.randomUUID()
     const resendRes = await sendResendSingleWithRetry(
       config.resendApiKey,
       {
@@ -228,6 +239,12 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
         subject,
         html,
         text,
+        ...(config.gmailUser ? { reply_to: config.gmailUser } : {}),
+        headers: {
+          'X-Entity-Ref-ID': entityRefId,
+          'List-Unsubscribe': `<${appUrl}/app/profile>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
       },
       idempotencyKey
     )
@@ -402,6 +419,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         })
       }
 
+      // Atomic lock: Stamp welcome_email_sent: true in auth.users.user_metadata BEFORE dispatching the SMTP email
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          ...(authUser.user_metadata || {}),
+          welcome_email_sent: true,
+        },
+      })
+
       // Resolve display name
       let recipientName =
         (body.name || (authUser.user_metadata?.full_name as string | undefined) || '').trim()
@@ -459,6 +484,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         idempotencyKey,
         config: emailConfig,
         transporter,
+        appUrl,
       })
 
       if (!sendResult.ok) {
@@ -472,14 +498,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
           502
         )
       }
-
-      // Permanently mark welcome_email_sent: true on auth.users.user_metadata
-      await supabaseAdmin.auth.admin.updateUserById(userId, {
-        user_metadata: {
-          ...(authUser.user_metadata || {}),
-          welcome_email_sent: true,
-        },
-      })
 
       return jsonResponse({
         ok: true,
@@ -504,6 +522,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
           { ok: false, error: 'followingId is required for new_follower mode' },
           400
         )
+      }
+
+      // Check public.notifications for duplicate in last 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { data: existingNotifs } = await supabaseAdmin
+        .from('notifications')
+        .select('id, created_at')
+        .eq('user_id', followingId)
+        .eq('actor_id', followerId)
+        .eq('type', 'new_follower')
+        .gte('created_at', twentyFourHoursAgo)
+        .limit(1)
+
+      if (existingNotifs && existingNotifs.length > 0) {
+        return jsonResponse({
+          ok: true,
+          mode: 'new_follower',
+          deduplicated: true,
+          count: 0,
+          message: 'New follower notification already sent in the last 24 hours',
+        })
       }
 
       const { data: userData, error: userErr } =
@@ -533,6 +572,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
       }
 
+      // Insert in-app notification into public.notifications
+      await supabaseAdmin.from('notifications').insert({
+        id: `notif_follow_${followingId.slice(0, 8)}_${followerId.slice(0, 8)}_${Date.now()}`,
+        user_id: followingId,
+        actor_id: followerId,
+        type: 'new_follower',
+        title: 'New Follower',
+        message: 'Someone new just followed your writing on Inkwell — tap to view their profile',
+        link: `/author/${followerId}`,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      })
+
       const { count: followerCount } = await supabaseAdmin
         .from('follows')
         .select('*', { count: 'exact', head: true })
@@ -547,8 +599,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         appUrl,
       })
 
-      const minuteWindow = new Date().toISOString().slice(0, 16)
-      const idempotencyKey = `new-follower/${followingId}-${followerId}-${minuteWindow}`
+      const idempotencyKey = `new-follower/${followingId}-${followerId}-${Date.now()}`
 
       const sendResult = await sendEmail({
         to: recipientEmail,
@@ -558,6 +609,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         idempotencyKey,
         config: emailConfig,
         transporter,
+        appUrl,
       })
 
       if (!sendResult.ok) {
@@ -586,6 +638,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonResponse({
         ok: true,
         mode: 'new_follower',
+        deduplicated: false,
         simulated: sendResult.provider === 'simulated',
         provider: sendResult.provider,
         count: 1,
@@ -648,7 +701,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       let sentCount = 0
       let skippedSandbox = 0
 
-      for (const user of recipients) {
+      for (let i = 0; i < recipients.length; i++) {
+        if (i > 0) {
+          await sleep(500)
+        }
+        const user = recipients[i]
         const email = user.email as string
         const metaName =
           (user.user_metadata?.full_name as string | undefined)?.trim() || ''
@@ -670,6 +727,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           idempotencyKey,
           config: emailConfig,
           transporter,
+          appUrl,
         })
 
         if (sendResult.ok) {
@@ -872,7 +930,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       details?: unknown
     }> = []
 
-    for (const p of sendablePayloads) {
+    for (let i = 0; i < sendablePayloads.length; i++) {
+      if (i > 0) {
+        await sleep(500)
+      }
+      const p = sendablePayloads[i]
       const idempotencyKey = `digest/${mode}-${entityKey}-${p.followerId}`
       const sendResult = await sendEmail({
         to: p.to as string,
@@ -882,6 +944,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         idempotencyKey,
         config: emailConfig,
         transporter,
+        appUrl,
       })
 
       deliveryResults.push({

@@ -514,18 +514,28 @@ export async function followWriter(followerId: string, followingId: string): Pro
   }
   }
 
-  // 3. Create notification for followed writer & trigger curiosity-driven email
+  // 3. Create optimistic local notification & trigger curiosity-driven email (Edge Function records in public.notifications with 24h deduplication)
   try {
     const followerProfile = await getWriterProfile(followerId)
     const followerName = followerProfile?.full_name || 'A reader'
-    await createNotification({
-      user_id: followingId,
-      actor_id: followerId,
-      type: 'new_follower',
-      title: 'New Follower',
-      message: `${followerName} started following you — tap to view their profile`,
-      link: `/author/${followerId}`
-    })
+    const ls = safeLocalStorage()
+    if (ls) {
+      const key = `inkwell_notifications_${followingId}`
+      const existing = JSON.parse(ls.getItem(key) || '[]') as Notification[]
+      const localNotif: Notification = {
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        user_id: followingId,
+        actor_id: followerId,
+        type: 'new_follower',
+        title: 'New Follower',
+        message: `${followerName} started following you — tap to view their profile`,
+        link: `/author/${followerId}`,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      }
+      existing.unshift(localNotif)
+      ls.setItem(key, JSON.stringify(existing.slice(0, 50)))
+    }
   } catch {
     /* ignore error */
   }
@@ -597,6 +607,18 @@ export async function ensureWelcomeMessageSent(user: {
     } catch {
       /* ignore localStorage error */
     }
+  }
+
+  // Atomic lock: stamp welcome_email_sent: true in auth.users.user_metadata BEFORE invoking Edge Function
+  if (user.user_metadata) {
+    user.user_metadata.welcome_email_sent = true
+  }
+  try {
+    await supabase.auth.updateUser({
+      data: { welcome_email_sent: true },
+    })
+  } catch {
+    /* ignore error */
   }
 
   try {

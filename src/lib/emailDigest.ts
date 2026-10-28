@@ -115,7 +115,7 @@ export function buildAccountAwareUrl(
 
 function buildSentToFooterHtml(recipientEmail?: string): string {
   if (!recipientEmail?.trim()) return ''
-  return `<p style="margin:6px 0 0;color:#71717A;">This email was sent to <strong>${escapeHtml(recipientEmail.trim())}</strong></p>`
+  return `<p style="margin:6px 0 0;color:#71717A;">Sent to <strong>${escapeHtml(recipientEmail.trim())}</strong> by Inkwell</p>`
 }
 
 function getArticleSummary(article: DigestArticle): string {
@@ -184,7 +184,11 @@ export function buildDigestHtml(options: BuildDigestOptions): string {
       const emoji = escapeHtml(article.cover_emoji?.trim() || '✦')
       const readingTime = Math.max(1, Number(article.reading_time) || 1)
       const safeSlug = encodeURIComponent((article.slug || '').trim())
-      const articleUrl = `${appUrl}/p/${safeSlug}`
+      const articleUrl = buildAccountAwareUrl(
+        `${appUrl}/p/${safeSlug}`,
+        recipientEmail,
+        recipientUserId
+      )
       const divider =
         index < articles.length - 1
           ? 'border-bottom:1px solid #E6E1D6;padding-bottom:28px;margin-bottom:28px;'
@@ -303,7 +307,11 @@ export function buildDigestText(options: BuildDigestOptions): string {
     const author = article.author_name?.trim() || 'An Inkwell Writer'
     const readingTime = Math.max(1, Number(article.reading_time) || 1)
     const summary = getArticleSummary(article)
-    const url = `${appUrl}/p/${encodeURIComponent((article.slug || '').trim())}`
+    const url = buildAccountAwareUrl(
+      `${appUrl}/p/${encodeURIComponent((article.slug || '').trim())}`,
+      recipientEmail,
+      recipientUserId
+    )
 
     lines.push(`${title}`)
     lines.push(`By ${author} • ${readingTime} min read`)
@@ -320,7 +328,7 @@ export function buildDigestText(options: BuildDigestOptions): string {
   lines.push('----------------------------------------')
   lines.push(`Manage digest preferences: ${preferencesUrl}`)
   if (recipientEmail?.trim()) {
-    lines.push(`This email was sent to ${recipientEmail.trim()}`)
+    lines.push(`Sent to ${recipientEmail.trim()} by Inkwell`)
   }
 
   return lines.join('\n')
@@ -438,7 +446,7 @@ export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): Bu
     options.recipientEmail,
     options.recipientUserId
   )
-  const subject = '✦ Someone new just followed you on Inkwell!'
+  const subject = 'New follower on Inkwell'
   const safeRecipient = options.recipientName?.trim()
     ? escapeHtml(options.recipientName.trim())
     : ''
@@ -529,7 +537,7 @@ export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): Bu
 </html>`
 
   const textLines: string[] = [
-    'INKWELL — Someone new just followed you on Inkwell!',
+    'INKWELL — New follower on Inkwell',
     '========================================',
     '',
   ]
@@ -537,7 +545,7 @@ export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): Bu
     textLines.push(`Hello ${options.recipientName.trim()},`, '')
   }
   textLines.push(
-    'Your words are resonating. Someone new just followed your writing on Inkwell!',
+    'Your words are resonating. Someone new just followed your writing on Inkwell.',
     'We are keeping their identity a surprise in this email — open Inkwell to see who it is and check out their profile.',
     ''
   )
@@ -549,7 +557,7 @@ export function buildNewFollowerEmail(options: NewFollowerEmailOptions = {}): Bu
   }
   textLines.push(`Open Inkwell to See Who It Is → ${ctaUrl}`)
   if (options.recipientEmail?.trim()) {
-    textLines.push('', `This email was sent to ${options.recipientEmail.trim()}`)
+    textLines.push('', `Sent to ${options.recipientEmail.trim()} by Inkwell`)
   }
 
   return {
@@ -568,7 +576,7 @@ export function buildFeatureAnnouncementEmail(
     options.recipientEmail,
     options.recipientUserId
   )
-  const subject = "✦ What's New on Inkwell: Followers, Daily Streaks, Series & Search"
+  const subject = 'Inkwell update: Followers, daily streaks, series, and search'
   const safeRecipient = options.recipientName?.trim()
     ? escapeHtml(options.recipientName.trim())
     : ''
@@ -688,7 +696,7 @@ export function buildFeatureAnnouncementEmail(
 </html>`
 
   const textLines: string[] = [
-    "INKWELL — What's New on Inkwell: Followers, Daily Streaks, Series & Search",
+    'INKWELL — Inkwell update: Followers, daily streaks, series, and search',
     '========================================',
     '',
     options.recipientName?.trim()
@@ -702,7 +710,7 @@ export function buildFeatureAnnouncementEmail(
     `Explore the New Inkwell → ${ctaUrl}`,
   ]
   if (options.recipientEmail?.trim()) {
-    textLines.push('', `This email was sent to ${options.recipientEmail.trim()}`)
+    textLines.push('', `Sent to ${options.recipientEmail.trim()} by Inkwell`)
   }
 
   return {
@@ -721,7 +729,8 @@ export function buildWelcomeEmail(
     options.recipientEmail,
     options.recipientUserId
   )
-  const subject = "✦ Welcome to Inkwell — Your Writer's Sanctuary Awaits"
+  const subjectName = (options.recipientName || '').replace(/<[^>]*>/g, '').trim()
+  const subject = subjectName ? `Welcome to Inkwell, ${subjectName}` : 'Welcome to Inkwell'
   const safeRecipient = options.recipientName?.trim()
     ? escapeHtml(options.recipientName.trim())
     : ''
@@ -830,21 +839,21 @@ export function buildWelcomeEmail(
 </html>`
 
   const textLines: string[] = [
-    "INKWELL — Welcome to Inkwell — Your Writer's Sanctuary Awaits",
+    `INKWELL — ${subject}`,
     '========================================',
     '',
     options.recipientName?.trim()
       ? `Welcome to Inkwell, ${options.recipientName.trim()},`
       : 'Welcome to Inkwell,',
     '',
-    'Your email is confirmed and your desk is ready. Here are three ways to begin today:',
+    'Your email is confirmed and your desk is ready. Inkwell was built for unhurried thinking, timeless essays, and meaningful literary connection. Here are three ways to begin today:',
     '',
     ...steps.map(s => `${s.emoji} ${s.title} — ${s.description}`),
     '',
     `Open Your Writer's Desk → ${ctaUrl}`,
   ]
   if (options.recipientEmail?.trim()) {
-    textLines.push('', `This email was sent to ${options.recipientEmail.trim()}`)
+    textLines.push('', `Sent to ${options.recipientEmail.trim()} by Inkwell`)
   }
 
   return {
