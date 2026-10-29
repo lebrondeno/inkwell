@@ -4,8 +4,8 @@ import { escapeHtml } from './ai'
  * Editor markdown helpers.
  *
  * AI responses (and pasted drafts) frequently contain raw markdown such as
- * `# Heading`, `**bold**` or `- bullet`. These helpers convert that markdown
- * into the clean rich-text HTML understood by the TipTap editor.
+ * `# Heading`, `**bold**`, `- bullet`, or `- [ ] checklist`. These helpers
+ * convert that markdown into the clean rich-text HTML understood by the TipTap editor.
  *
  * Heading mapping (the article title is already the page's H1):
  *   `# `   → <h2>
@@ -14,6 +14,8 @@ import { escapeHtml } from './ai'
  */
 
 const HEADING_RE = /^(#{1,3})\s+(.+)$/
+const TASK_RE = /^[-*•]\s+\[([ xX])\]\s+(.+)$/
+const CHECKBOX_SYMBOL_RE = /^([☐☑])\s+(.+)$/
 const BULLET_RE = /^[-*•]\s+(.+)$/
 const ORDERED_RE = /^\d+[.)]\s+(.+)$/
 const HR_RE = /^(?:-{3,}|\*{3,}|_{3,})$/
@@ -45,6 +47,7 @@ function linesToBlocks(lines: string[], paragraphAttrs = ''): string {
   const out: string[] = []
   let para: string[] = []
   let list: { type: 'ul' | 'ol'; items: string[] } | null = null
+  let taskList: Array<{ checked: boolean; text: string }> | null = null
 
   const flushPara = () => {
     if (para.length) {
@@ -58,41 +61,76 @@ function linesToBlocks(lines: string[], paragraphAttrs = ''): string {
       list = null
     }
   }
+  const flushTaskList = () => {
+    if (taskList) {
+      out.push(
+        `<ul data-type="taskList">${taskList
+          .map(
+            t =>
+              `<li data-type="taskItem" data-checked="${t.checked}"><label><input type="checkbox"${
+                t.checked ? ' checked="checked"' : ''
+              }><span></span></label><div><p>${formatInlineMarkdown(t.text)}</p></div></li>`
+          )
+          .join('')}</ul>`
+      )
+      taskList = null
+    }
+  }
 
   for (const line of lines) {
     const text = visibleText(line)
-    if (!text) { flushPara(); flushList(); continue }
+    if (!text) { flushPara(); flushList(); flushTaskList(); continue }
 
     const heading = text.match(HEADING_RE)
     if (heading) {
-      flushPara(); flushList()
+      flushPara(); flushList(); flushTaskList()
       const tag = heading[1].length === 1 ? 'h2' : 'h3'
       out.push(`<${tag}>${formatInlineMarkdown(stripMarker(line, /^#{1,3}\s+/))}</${tag}>`)
       continue
     }
     if (HR_RE.test(text)) {
-      flushPara(); flushList()
+      flushPara(); flushList(); flushTaskList()
       out.push('<hr>')
       continue
     }
+
+    const taskMatch = text.match(TASK_RE)
+    const symbolMatch = !taskMatch && text.match(CHECKBOX_SYMBOL_RE)
+    if (taskMatch || symbolMatch) {
+      flushPara(); flushList()
+      if (!taskList) taskList = []
+      const checked = taskMatch ? taskMatch[1].toLowerCase() === 'x' : symbolMatch ? symbolMatch[1] === '☑' : false
+      const rawItemText = stripMarker(
+        line,
+        taskMatch ? /^[-*•]\s+\[[ xX]\]\s+/ : /^[☐☑]\s+/
+      )
+      taskList.push({ checked, text: rawItemText })
+      continue
+    }
+
     const bullet = text.match(BULLET_RE)
     const ordered = !bullet && text.match(ORDERED_RE)
     if (bullet || ordered) {
-      flushPara()
+      flushPara(); flushTaskList()
       const type = bullet ? 'ul' : 'ol'
       if (!list || list.type !== type) { flushList(); list = { type, items: [] } }
       list.items.push(stripMarker(line, bullet ? /^[-*•]\s+/ : /^\d+[.)]\s+/))
       continue
     }
-    flushList()
+    flushList(); flushTaskList()
     para.push(line)
   }
-  flushPara(); flushList()
+  flushPara(); flushList(); flushTaskList()
   return out.join('')
 }
 
 const BLOCK_MARKER_TEST = (text: string) =>
-  HEADING_RE.test(text) || BULLET_RE.test(text) || ORDERED_RE.test(text) || HR_RE.test(text)
+  HEADING_RE.test(text) ||
+  BULLET_RE.test(text) ||
+  ORDERED_RE.test(text) ||
+  HR_RE.test(text) ||
+  TASK_RE.test(text) ||
+  CHECKBOX_SYMBOL_RE.test(text)
 
 const INLINE_MARKER_TEST = (html: string) => formatInlineMarkdown(html) !== html
 

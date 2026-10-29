@@ -618,6 +618,9 @@ export default function Editor() {
               placeholder="Tell your story. Format with toolbar, write freely..."
               onFormatMarkdown={handleFormatMarkdown}
               hasMarkdown={contentHasMarkdown}
+              onOpenAi={() => { openAiPanel(); setAiLoading(false) }}
+              wordCount={wordCount}
+              readingTime={readingTime}
             />
           </div>
         </div>

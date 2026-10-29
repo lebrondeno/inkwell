@@ -810,12 +810,12 @@
   .statsText .wordCount { font-size: 10.5px; }
 
   .editorCol {
-    padding: 20px 16px 100px;
+    padding: 20px 16px 140px;
     max-width: 100vw;
     box-sizing: border-box;
   }
 
-  .focusMode .editorCol { padding: 24px 16px 100px; }
+  .focusMode .editorCol { padding: 24px 16px 140px; }
 
   .coverArea { gap: 8px; margin-bottom: 10px; }
   .emojiBtn { font-size: 28px; }
@@ -845,7 +845,7 @@
   .statsDot,
   .statsText .wordCount { display: none; }
 
-  .editorCol { padding: 16px 14px 100px; }
+  .editorCol { padding: 16px 14px 140px; }
   .titleInput { font-size: 23px; }
   .emojiBtn { font-size: 24px; }
   .summaryHint { flex-basis: auto; }

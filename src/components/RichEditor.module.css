@@ -5,15 +5,19 @@
   min-height: 480px;
   overflow: visible;
   background: transparent;
+  position: relative;
 }
 
-/* ── Sticky glass toolbar ── */
+/* ══════════════════════════════════════════════
+   Desktop Sticky Toolbar (> 768px)
+   ══════════════════════════════════════════════ */
 .toolbarWrap {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   padding: 8px 0;
   margin-bottom: 4px;
 }
@@ -30,12 +34,12 @@
   overflow-y: hidden;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
 }
 
 .toolbar::-webkit-scrollbar { display: none; }
@@ -59,6 +63,7 @@
   flex-shrink: 0;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .toolBtn:hover {
@@ -82,7 +87,35 @@
 .italic    { font-style: italic; font-family: Georgia, serif; }
 .underline { text-decoration: underline; text-underline-offset: 2px; }
 .strike    { text-decoration: line-through; }
-.clearColor { font-size: 11px; color: var(--text-muted); min-width: 24px; padding: 0 4px; }
+
+/* Pinned Aa WPS Button */
+.wpsTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 9px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.wpsTrigger:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.wpsAa {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.wpsChevron {
+  font-size: 10px;
+  opacity: 0.8;
+}
 
 .select {
   appearance: none;
@@ -101,22 +134,23 @@
   flex-shrink: 0;
   max-width: 120px;
   transition: background 0.12s, border-color 0.12s;
+  user-select: none;
 }
 
 .select:hover { background-color: var(--bg-hover); }
 .select:focus-visible { border-color: var(--accent); }
 .select option { background: var(--bg-card); color: var(--text-primary); }
-.selectNarrow { max-width: 92px; }
+.selectNarrow { max-width: 82px; }
 
 .sep {
   width: 1px;
   height: 18px;
   background: var(--border-light);
-  margin: 0 5px;
+  margin: 0 4px;
   flex-shrink: 0;
 }
 
-/* Color trigger */
+/* Color indicator & trigger */
 .colorIndicator {
   position: relative;
   display: inline-flex;
@@ -124,7 +158,7 @@
   align-items: center;
   font-weight: 800;
   line-height: 1;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .colorBar {
@@ -135,28 +169,42 @@
   margin-top: 2px;
 }
 
-/* Color popover (sibling of the scrolling toolbar so it is never clipped) */
+.highlightBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #18181b;
+  line-height: 1.2;
+}
+
+/* Color Popovers */
 .colorPopover {
   position: absolute;
-  top: calc(100% - 2px);
-  width: 196px;
-  padding: 12px;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  padding: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
-  z-index: 40;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4);
+  z-index: 60;
   animation: popIn 0.14s ease-out;
 }
 
 @keyframes popIn {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translate(-50%, -4px) scale(0.97); }
+  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 .colorGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
@@ -170,8 +218,7 @@
   transition: transform 0.1s, box-shadow 0.1s;
 }
 
-.colorBtn:hover { transform: scale(1.12); }
-
+.colorBtn:hover { transform: scale(1.15); }
 .colorBtnActive {
   box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--accent);
 }
@@ -183,19 +230,18 @@
   border: 1px solid var(--border);
   color: var(--text-secondary);
   border-radius: 8px;
-  padding: 7px;
-  font-size: 12px;
+  padding: 6px;
+  font-size: 11.5px;
   font-family: 'DM Sans', sans-serif;
   cursor: pointer;
 }
 
 .colorReset:hover { color: var(--text-primary); border-color: var(--border-light); }
 
-/* Markdown cleanup button */
 .mdBtn {
   font-family: 'DM Mono', monospace;
   font-size: 11.5px;
-  padding: 0 9px;
+  padding: 0 8px;
   color: var(--text-muted);
 }
 
@@ -205,7 +251,444 @@
   background: var(--accent-glow);
 }
 
-/* ── Editor body (ProseMirror) ── */
+.aiBtn {
+  color: var(--accent);
+  font-weight: 700;
+  background: var(--accent-glow);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* ══════════════════════════════════════════════
+   SAMSUNG NOTES / WPS MOBILE KEYBOARD DOCK (<= 768px)
+   ══════════════════════════════════════════════ */
+.mobileDockContainer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 350;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  transition: bottom 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobileDockBar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  background: #18181b;
+  border-top: 1px solid #27272a;
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100vw;
+  min-width: 0;
+  position: relative;
+  z-index: 355;
+}
+
+/* Pinned Left Trigger */
+.dockPinnedLeft {
+  flex: 0 0 46px;
+  height: 44px;
+  background: #18181b;
+  border: none;
+  border-right: 1px solid #27272a;
+  color: #f4f4f5;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: 'DM Sans', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease;
+}
+
+.dockPinnedLeft:active {
+  background: #27272a;
+}
+
+.dockAaActive {
+  background: rgba(217, 119, 6, 0.18) !important;
+  color: #d97706 !important;
+}
+
+/* Horizontally Scrollable Strip */
+.dockScrollStrip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  height: 44px;
+}
+
+.dockScrollStrip::-webkit-scrollbar { display: none; }
+
+.dockToolBtn {
+  min-width: 34px !important;
+  height: 34px !important;
+  font-size: 13.5px !important;
+  color: #d4d4d8 !important;
+  border-radius: 8px !important;
+}
+
+.dockToolBtn:hover {
+  background: #27272a !important;
+  color: #ffffff !important;
+}
+
+.dockToolBtn.active {
+  background: rgba(217, 119, 6, 0.2) !important;
+  color: #d97706 !important;
+}
+
+.dockSelect {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46 !important;
+  height: 32px !important;
+  font-size: 12px !important;
+  max-width: 72px !important;
+}
+
+.dockSelectNarrow {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46 !important;
+  height: 32px !important;
+  font-size: 12px !important;
+  max-width: 58px !important;
+}
+
+/* Pinned Right Button */
+.dockPinnedRight {
+  flex: 0 0 46px;
+  height: 44px;
+  background: #18181b;
+  border: none;
+  border-left: 1px solid #27272a;
+  color: #d97706;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s ease;
+}
+
+.dockPinnedRight:active {
+  background: #27272a;
+}
+
+/* ══════════════════════════════════════════════
+   WPS ALL-IN-ONE FORMATTING DRAWER
+   ══════════════════════════════════════════════ */
+.wpsDrawer {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  animation: slideUpWps 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+/* Desktop drawer placement */
+@media (min-width: 769px) {
+  .wpsDrawer {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 620px;
+    max-width: 92vw;
+    border-radius: 14px;
+    z-index: 50;
+    max-height: 480px;
+  }
+}
+
+/* Mobile drawer placement */
+@media (max-width: 768px) {
+  .wpsDrawer {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 58vh;
+    border-radius: 18px 18px 0 0;
+    border-bottom: none;
+    background: #18181b;
+    border-color: #27272a;
+    z-index: 360;
+  }
+}
+
+@keyframes slideUpWps {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.drawerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.drawerIcon {
+  padding: 2px 6px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.drawerCloseBtn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 100px;
+  cursor: pointer;
+}
+
+.drawerCloseBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.drawerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawerLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.drawerSubLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clearPill {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.clearPill:hover { text-decoration: underline; }
+
+/* Font size pills */
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sizePill {
+  flex: 1 1 calc(12.5% - 6px);
+  min-width: 34px;
+  height: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.sizePill:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.sizePillActive {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent) !important;
+}
+
+/* Font family pills */
+.pillGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.fontPill {
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.fontPill:hover {
+  border-color: var(--border-light);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.fontPillActive {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-glow) !important;
+  font-weight: 700;
+}
+
+/* Swatches */
+.colorSwatchRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatchBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.swatchBtn:hover { transform: scale(1.12); }
+.swatchBtnActive {
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--accent);
+}
+
+/* Tool button group in drawer */
+.toolBtnGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toolBtnGroup button {
+  min-width: 44px;
+  height: 34px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.toolBtnGroup button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Inserts grid */
+.insertGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.insertPill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.insertPill:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.insertPill span {
+  color: var(--accent);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════
+   PROSEMIRROR CONTENT & CHECKLIST STYLING
+   ══════════════════════════════════════════════ */
 .editorBody {
   flex: 1;
   overflow-y: visible;
@@ -223,7 +706,6 @@
   caret-color: var(--accent);
 }
 
-/* ProseMirror content elements */
 .proseMirror p {
   margin-bottom: 1em;
 }
@@ -285,6 +767,19 @@
   width: 40%;
 }
 
+.proseMirror pre {
+  background: #18181b;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 1.2em 0;
+  overflow-x: auto;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #f4f4f5;
+}
+
 .proseMirror code {
   background: var(--bg-hover);
   padding: 2px 6px;
@@ -306,6 +801,79 @@
   cursor: pointer;
 }
 
+/* Highlight background mark */
+.proseMirror span[style*="background-color"] {
+  border-radius: 3px;
+  padding: 1px 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* ── Checklist (TipTap TaskList & TaskItem) ── */
+.taskList {
+  list-style: none;
+  padding-left: 0;
+  margin: 1em 0;
+}
+
+.taskItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 0.5em;
+  position: relative;
+}
+
+.taskItem > label {
+  flex: 0 0 auto;
+  user-select: none;
+  margin-top: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.taskItem > label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-light);
+  border-radius: 4px;
+  background: var(--bg-card);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+  outline: none;
+}
+
+.taskItem > label input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.taskItem > label input[type="checkbox"]:checked::after {
+  content: '✓';
+  color: #141210;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.taskItem > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.taskItem[data-checked="true"] > div p {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
 /* Placeholder */
 .proseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -318,34 +886,19 @@
 
 /* Selection */
 .proseMirror ::selection {
-  background: rgba(201,169,110,0.2);
+  background: rgba(201, 169, 110, 0.25);
 }
 
-/* ── Mobile: full-width horizontally scrollable ribbon ── */
+/* ══════════════════════════════════════════════
+   Mobile viewports (<= 768px & <= 480px)
+   ══════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .toolbarWrap {
-    justify-content: flex-start;
-    margin: 0 -16px 4px;
-    padding: 6px 0;
-  }
-  .toolbar {
-    width: 100%;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    padding: 4px 10px;
-    box-shadow: none;
-  }
-  .toolBtn { min-width: 36px; height: 36px; font-size: 14px; }
-  .select { height: 36px; font-size: 13px; }
-  .clearColor { min-width: 36px; }
-  .editorBody { padding: 14px 0 40px; }
+  .editorBody { padding: 14px 0 60px; }
   .proseMirror { font-size: 17px; line-height: 1.8; }
 }
 
 @media (max-width: 480px) {
-  .toolbarWrap { margin: 0 -14px 4px; }
-  .select { max-width: 104px; }
-  .selectNarrow { max-width: 84px; }
   .proseMirror { font-size: 16px; }
+  .pillGrid { grid-template-columns: 1fr; }
+  .insertGrid { grid-template-columns: 1fr; }
 }

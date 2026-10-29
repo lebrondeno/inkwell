@@ -26,6 +26,17 @@ describe('markdownToHtml', () => {
     expect(markdownToHtml('- one\n- two')).toBe('<ul><li><p>one</p></li><li><p>two</p></li></ul>')
     expect(markdownToHtml('1. one\n2. two')).toBe('<ol><li><p>one</p></li><li><p>two</p></li></ol>')
   })
+  it('builds interactive task lists from - [ ] and symbols', () => {
+    const html = markdownToHtml('- [ ] Prep sermon\n- [x] Read chapter\n☐ Write intro\n☑ Final prayer')
+    expect(html).toContain('<ul data-type="taskList">')
+    expect(html).toContain('data-type="taskItem" data-checked="false"')
+    expect(html).toContain('data-type="taskItem" data-checked="true"')
+    expect(html).toContain('checked="checked"')
+    expect(html).toContain('Prep sermon')
+    expect(html).toContain('Read chapter')
+    expect(html).toContain('Write intro')
+    expect(html).toContain('Final prayer')
+  })
   it('escapes HTML to prevent injection', () => {
     const out = markdownToHtml('<script>alert(1)</script>')
     expect(out).not.toContain('<script>')
