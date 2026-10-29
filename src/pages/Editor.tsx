@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import {
   supabase,
@@ -15,6 +15,7 @@ import {
   generateOutline, getReflectionPrompts, changeTone, generateTags, customPrompt,
   DEFAULT_MAX_CHARS, ARTICLE_TOO_LONG_MSG, formatAiErrorMessage, formatAiInsertion
 } from '../lib/ai'
+import { markdownToHtml, formatMarkdownInHtml, hasRawMarkdown } from '../lib/editorMarkdown'
 import type { Article, ArticleVersion, Series } from '../lib/supabase'
 import styles from './Editor.module.css'
 
@@ -60,6 +61,21 @@ export default function Editor() {
   const [useArticleCtx, setUseArticleCtx]     = useState(true)
   const [titleFont, setTitleFont]             = useState(TITLE_FONTS[0].value)
   const [showTitleFonts, setShowTitleFonts]   = useState(false)
+  const [showDetails, setShowDetails]         = useState(false)
+  const [summarizing, setSummarizing]         = useState(false)
+
+  const openAiPanel = useCallback(() => { setHistoryOpen(false); setAiPanel(true) }, [])
+  const openHistory = useCallback(() => { setAiPanel(false); setHistoryOpen(true) }, [])
+
+  // Escape closes the AI / History sheet
+  useEffect(() => {
+    if (!aiPanel && !historyOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setAiPanel(false); setHistoryOpen(false) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [aiPanel, historyOpen])
 
   const scrollAiBoxIntoView = useCallback(() => {
     requestAnimationFrame(() => {
@@ -183,8 +199,11 @@ export default function Editor() {
     handleChange('tags', val.split(',').map(t => t.trim()).filter(Boolean))
   }
 
-  const runAI = async (action: string) => {
-    setAiAction(action); setAiLoading(true); setAiResult(''); setAiPanel(true)
+  const runAI = async (action: string, opts: { openPanel?: boolean } = {}) => {
+    const openPanel = opts.openPanel !== false
+    setAiAction(action); setAiLoading(true); setAiResult('')
+    if (openPanel) openAiPanel()
+    if (!openPanel && action === 'summarize') setSummarizing(true)
     scrollAiBoxIntoView()
     try {
       const plain = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -214,20 +233,23 @@ export default function Editor() {
         }
       }
       setAiResult(result)
+      if (!openPanel && action === 'summarize') showToast('✦ Summary generated')
       scrollAiBoxIntoView()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setAiResult(formatAiErrorMessage(msg))
+      if (!openPanel) showToast(formatAiErrorMessage(msg), 'error')
       scrollAiBoxIntoView()
     } finally {
       setAiLoading(false)
+      setSummarizing(false)
       scrollAiBoxIntoView()
     }
   }
 
   const handleCustomPrompt = async () => {
     if (!customPromptText.trim()) return
-    setAiAction('custom'); setAiLoading(true); setAiResult(''); setAiPanel(true)
+    setAiAction('custom'); setAiLoading(true); setAiResult(''); openAiPanel()
     scrollAiBoxIntoView()
     try {
       const plain = (article.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -244,28 +266,68 @@ export default function Editor() {
     }
   }
 
-  const applyAIResult = async () => {
-    if (!aiResult || aiResult.startsWith('⚠️')) return
-
-    // Critical Safety Net: Save checkpoint snapshot before AI overwrite/append
+  // Critical Safety Net: Save checkpoint snapshot before AI overwrite/append
+  const saveSafetySnapshot = async (reason: string) => {
     if (article.id && user?.id) {
       try {
         await saveArticleVersion(article.id, user.id, {
           title: article.title || 'Untitled',
           content: article.content || '',
           summary: article.summary,
-          reason: 'Before AI Apply'
+          reason
         })
       } catch (err) {
-        console.warn('Could not save safety snapshot before AI apply', err)
+        console.warn(`Could not save safety snapshot (${reason})`, err)
       }
     }
+  }
 
-    const html = formatAiInsertion(aiAction, article.content || '', aiResult)
+  const isMobileSheet = () =>
+    typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 900px)').matches
+
+  const applyAIResult = async () => {
+    if (!aiResult || aiResult.startsWith('⚠️')) return
+
+    await saveSafetySnapshot('Before AI Apply')
+
+    // Automatically clean any raw markdown (# headings, **bold**, lists) in the AI text
+    const current = article.content || ''
+    const html = aiAction === 'continue'
+      ? current + formatMarkdownInHtml(formatAiInsertion('continue', '', aiResult))
+      : formatMarkdownInHtml(formatAiInsertion(aiAction, current, aiResult))
     handleChange('content', html)
     setAiPanel(false)
     setAiResult('')
     showToast('AI suggestion applied (snapshot saved to History)')
+  }
+
+  const insertAIResult = async () => {
+    if (!aiResult || aiResult.startsWith('⚠️')) return
+    const inserted = markdownToHtml(aiResult)
+    if (!inserted) return
+
+    await saveSafetySnapshot('Before AI Apply')
+
+    const current = article.content || ''
+    const isEmpty = !current.trim() || current === '<p></p>' || current === '<p><br></p>'
+    handleChange('content', isEmpty ? inserted : current + inserted)
+    setAiResult('')
+    if (isMobileSheet()) setAiPanel(false)
+    showToast('Inserted into article (snapshot saved to History)')
+  }
+
+  const contentHasMarkdown = useMemo(() => hasRawMarkdown(article.content || ''), [article.content])
+
+  const handleFormatMarkdown = () => {
+    const current = article.content || ''
+    const next = formatMarkdownInHtml(current)
+    if (next === current) {
+      showToast('No raw markdown found — your article is already clean ✓')
+      return
+    }
+    void saveSafetySnapshot('Before Markdown Format')
+    handleChange('content', next)
+    showToast('Markdown formatted into rich text')
   }
 
   const handleManualSave = async () => {
@@ -346,251 +408,340 @@ export default function Editor() {
   }
 
   const statusColor = article.status === 'published' ? 'var(--green)' : article.status === 'archived' ? 'var(--red)' : 'var(--text-muted)'
+  const seriesName = userSeries.find(s => s.id === article.series_id)?.title || ''
+  const tagCount = article.tags?.length || 0
+  const verseLabel = bibleVerseInput.trim()
+  const canInsertResult = !!aiResult && !aiLoading && !aiResult.startsWith('⚠️') && aiAction !== 'tags'
+
+  const quickActions: { action: string; icon: string; label: string }[] = [
+    { action: 'summarize', icon: '⊡',  label: 'Auto-summarize' },
+    { action: 'outline',   icon: '◈',  label: 'Generate Outline' },
+    { action: 'tags',      icon: '🏷️', label: 'Suggest Tags' },
+    { action: 'prompts',   icon: '💡', label: 'Reflection Prompts' },
+  ]
 
   return (
     <div className={`${styles.wrapper} ${focusMode ? styles.focusMode : ''}`}>
-      {/* Top Toolbar */}
-      <div className={styles.toolbar}>
+      {/* Top Bar */}
+      <header className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
-          <button className={styles.toolBtn} onClick={() => navigate('/app/articles')}>← Back</button>
+          <button className={styles.toolBtn} onClick={() => navigate('/app/articles')} title="Back to articles">
+            ← <span className={styles.btnLabel}>Back</span>
+          </button>
           <div className={styles.separator} />
-          <span className={styles.statusDot} style={{ color: statusColor }}>●</span>
-          <select value={article.status} onChange={e => handleChange('status', e.target.value)} className={styles.statusSelect}>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-
-        <div className={styles.toolbarCenter}>
-          <span className={styles.wordCount}>{wordCount} words · {readingTime} min read</span>
-          <span className={styles.saveIndicator}>{saving ? '◌ Saving...' : saved ? '✓ Saved' : '● Unsaved'}</span>
+          <div className={styles.statusWrap}>
+            <span className={styles.statusDot} style={{ color: statusColor }}>●</span>
+            <select value={article.status} onChange={e => handleChange('status', e.target.value)} className={styles.statusSelect} aria-label="Article status">
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <span className={styles.statsText}>
+            <span className={styles.wordCount}>{wordCount} words · {readingTime} min read</span>
+            <span className={styles.statsDot}>·</span>
+            <span className={`${styles.saveIndicator} ${!saved && !saving ? styles.unsaved : ''}`}>
+              {saving ? '◌ Saving...' : saved ? '✓ Saved' : '● Unsaved'}
+            </span>
+          </span>
         </div>
 
         <div className={styles.toolbarRight}>
-          <button className={`${styles.toolBtn} ${focusMode ? styles.active : ''}`} onClick={() => setFocusMode(!focusMode)}>
-            ⊡ Focus
+          <button
+            className={`${styles.toolBtn} ${showDetails ? styles.active : ''}`}
+            onClick={() => setShowDetails(d => !d)}
+            aria-expanded={showDetails}
+            title="Story details: series, tags, Bible verse"
+          >
+            ⚙ <span className={styles.btnLabel}>Details</span>
           </button>
-          <button className={styles.toolBtn} onClick={() => setHistoryOpen(true)} title="View version history snapshots">
-            ⏳ History
+          <button className={`${styles.toolBtn} ${focusMode ? styles.active : ''}`} onClick={() => setFocusMode(!focusMode)} title="Focus mode">
+            ⊡ <span className={styles.btnLabel}>Focus</span>
+          </button>
+          <button
+            className={`${styles.toolBtn} ${historyOpen ? styles.active : ''}`}
+            onClick={() => (historyOpen ? setHistoryOpen(false) : openHistory())}
+            title="View version history snapshots"
+          >
+            ⏳ <span className={styles.btnLabel}>History</span>
           </button>
           <button className={styles.toolBtn} onClick={handleManualSave} title="Save checkpoint">
-            💾 Checkpoint
+            💾 <span className={styles.btnLabel}>Checkpoint</span>
           </button>
-          <button className={styles.toolBtn} onClick={() => { setAiPanel(!aiPanel); setAiLoading(false) }}>
+          <button
+            className={`${styles.toolBtn} ${styles.aiToggle} ${aiPanel ? styles.active : ''}`}
+            onClick={() => { if (aiPanel) { setAiPanel(false) } else { openAiPanel() } setAiLoading(false) }}
+            title="AI Co-pilot"
+          >
             ✦ AI
           </button>
-          <button className="btn btn-primary" style={{ padding: '7px 16px', fontSize: '12px' }} onClick={publish}>
+          <button className={`btn btn-primary ${styles.publishBtn}`} onClick={publish}>
             Publish
           </button>
         </div>
-      </div>
+      </header>
 
       <div className={styles.main}>
         <div className={styles.editorCol}>
-          {/* Emoji + Title */}
-          <div className={styles.coverArea}>
-            <div className={styles.emojiWrapper}>
-              <button className={styles.emojiBtn} onClick={() => setShowEmojiPicker(!showEmojiPicker)}>{article.cover_emoji}</button>
-              {showEmojiPicker && (
-                <div className={styles.emojiPicker}>
-                  {EMOJIS.map(e => <button key={e} onClick={() => { handleChange('cover_emoji', e); setShowEmojiPicker(false) }}>{e}</button>)}
-                </div>
-              )}
+          <div className={styles.canvas}>
+            {/* Emoji + Title */}
+            <div className={styles.coverArea}>
+              <div className={styles.emojiWrapper}>
+                <button className={styles.emojiBtn} onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Cover emoji">{article.cover_emoji}</button>
+                {showEmojiPicker && (
+                  <div className={styles.emojiPicker}>
+                    {EMOJIS.map(e => <button key={e} onClick={() => { handleChange('cover_emoji', e); setShowEmojiPicker(false) }}>{e}</button>)}
+                  </div>
+                )}
+              </div>
+              <div className={styles.titleArea}>
+                <textarea
+                  className={styles.titleInput}
+                  style={{ fontFamily: titleFont }}
+                  placeholder="Title your piece..."
+                  value={article.title}
+                  onChange={e => handleChange('title', e.target.value)}
+                  rows={1}
+                  onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                />
+              </div>
+              <div className={styles.fontPickerWrap}>
+                <button className={styles.fontPickerBtn} onClick={() => setShowTitleFonts(!showTitleFonts)} title="Change title font">Aa ▾</button>
+                {showTitleFonts && (
+                  <div className={styles.fontDropdown}>
+                    {TITLE_FONTS.map(f => (
+                      <button key={f.value} className={`${styles.fontOption} ${titleFont === f.value ? styles.fontActive : ''}`}
+                        style={{ fontFamily: f.value }} onClick={() => { setTitleFont(f.value); setShowTitleFonts(false) }}>
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className={styles.titleArea}>
-              <div className={styles.titleMeta}>
-                <div className={styles.fontPickerWrap}>
-                  <button className={styles.fontPickerBtn} onClick={() => setShowTitleFonts(!showTitleFonts)} title="Change title font">Aa ▾</button>
-                  {showTitleFonts && (
-                    <div className={styles.fontDropdown}>
-                      {TITLE_FONTS.map(f => (
-                        <button key={f.value} className={`${styles.fontOption} ${titleFont === f.value ? styles.fontActive : ''}`}
-                          style={{ fontFamily: f.value }} onClick={() => { setTitleFont(f.value); setShowTitleFonts(false) }}>
-                          {f.label}
-                        </button>
+
+            {/* Metadata pill bar */}
+            <div className={styles.pillBar}>
+              <button
+                className={`${styles.pill} ${styles.pillPrimary} ${showDetails ? styles.pillActive : ''}`}
+                onClick={() => setShowDetails(d => !d)}
+                aria-expanded={showDetails}
+                aria-controls="story-details"
+              >
+                ⚙ Story Details <span className={`${styles.chevron} ${showDetails ? styles.chevronOpen : ''}`}>▾</span>
+              </button>
+              <button className={styles.pill} onClick={() => setShowDetails(true)} title="Series">
+                📚 <span className={styles.pillText}>{seriesName || 'Standalone'}</span>
+              </button>
+              <button className={styles.pill} onClick={() => setShowDetails(true)} title="Tags">
+                🏷️ {tagCount} {tagCount === 1 ? 'tag' : 'tags'}
+              </button>
+              <button className={`${styles.pill} ${!verseLabel ? styles.pillMuted : ''}`} onClick={() => setShowDetails(true)} title="Bible verse">
+                ✝ <span className={styles.pillText}>{verseLabel || 'Add verse'}</span>
+              </button>
+            </div>
+
+            {/* Collapsible Story Details */}
+            {showDetails && (
+              <section id="story-details" className={styles.detailsPanel} aria-label="Story details">
+                <div className={styles.detailsGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>📚 Series</span>
+                    <select
+                      className={styles.fieldInput}
+                      value={article.series_id || ''}
+                      onChange={e => handleChange('series_id', e.target.value || undefined)}
+                    >
+                      <option value="">No Series (Standalone Story)</option>
+                      {userSeries.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.cover_emoji || '📚'} {s.title}
+                        </option>
                       ))}
-                    </div>
-                  )}
+                    </select>
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>✝ Bible Verse</span>
+                    <input
+                      className={styles.fieldInput}
+                      placeholder="Optional — e.g. John 3:16"
+                      value={bibleVerseInput}
+                      onChange={e => { setBibleVerseInput(e.target.value); handleChange('bible_verse', e.target.value) }}
+                    />
+                  </label>
+
+                  <label className={`${styles.field} ${styles.fieldWide}`}>
+                    <span className={styles.fieldLabel}>🏷️ Tags</span>
+                    <input
+                      className={styles.fieldInput}
+                      placeholder="Tags, separated by commas..."
+                      value={tagInput}
+                      onChange={e => handleTagsChange(e.target.value)}
+                    />
+                  </label>
                 </div>
+                <div className={styles.detailsFoot}>
+                  <button className={styles.linkBtn} onClick={() => runAI('tags')} disabled={aiLoading}>✦ Suggest tags with AI</button>
+                  <button className={styles.linkBtn} onClick={() => setShowDetails(false)}>Done ✓</button>
+                </div>
+              </section>
+            )}
+
+            {/* Subtitle / Preview Summary */}
+            <div className={styles.summarySection}>
+              <div className={styles.summaryHeader}>
+                <span className={styles.summaryLabel}>Summary</span>
+                <span className={styles.summaryHint}>Shown in article previews</span>
+                <button
+                  className={styles.aiPill}
+                  onClick={() => runAI('summarize', { openPanel: false })}
+                  disabled={aiLoading || summarizing}
+                  title="Generate a summary with AI"
+                >
+                  {summarizing ? <><span className={styles.aiSpin}>✦</span> Summarizing…</> : '✦ AI Summarize'}
+                </button>
               </div>
               <textarea
-                className={styles.titleInput}
-                style={{ fontFamily: titleFont }}
-                placeholder="Title your piece..."
-                value={article.title}
-                onChange={e => handleChange('title', e.target.value)}
-                rows={1}
-                onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                className={styles.summaryInput}
+                placeholder="Write a short subtitle or summary (2–3 sentences)..."
+                value={article.summary || ''}
+                onChange={e => handleChange('summary', e.target.value)}
+                rows={2}
               />
             </div>
-          </div>
 
-          {/* Series selector */}
-          <div className={styles.metaRow} style={{ alignItems: 'center' }}>
-            <span className={styles.metaIcon}>📚</span>
-            <select
-              className={styles.seriesSelect}
-              value={article.series_id || ''}
-              onChange={e => handleChange('series_id', e.target.value || undefined)}
-            >
-              <option value="">No Series (Standalone Story)</option>
-              {userSeries.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.cover_emoji || '📚'} {s.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Tags */}
-          <div className={styles.metaRow}>
-            <span className={styles.metaIcon}>◈</span>
-            <input className={styles.metaInput} placeholder="Tags, separated by commas..." value={tagInput} onChange={e => handleTagsChange(e.target.value)} />
-          </div>
-
-          {/* Bible verse */}
-          <div className={styles.metaRow}>
-            <span className={styles.metaIcon}>✝</span>
-            <input className={styles.metaInput} placeholder="Bible verse (optional) — e.g. John 3:16" value={bibleVerseInput}
-              onChange={e => { setBibleVerseInput(e.target.value); handleChange('bible_verse', e.target.value) }} />
-          </div>
-
-          {/* Summary */}
-          <div className={styles.summarySection}>
-            <div className={styles.summaryHeader}>
-              <span className={styles.metaIcon}>⊡</span>
-              <span className={styles.summaryLabel}>Summary</span>
-              <span className={styles.summaryHint}>Shown in article previews · AI can auto-fill this</span>
-            </div>
-            <textarea
-              className={styles.summaryInput}
-              placeholder="Write a short summary of your article (2–3 sentences)..."
-              value={article.summary || ''}
-              onChange={e => handleChange('summary', e.target.value)}
-              rows={2}
+            {/* Rich editor */}
+            <RichEditor
+              content={article.content || ''}
+              onChange={html => handleChange('content', html)}
+              placeholder="Tell your story. Format with toolbar, write freely..."
+              onFormatMarkdown={handleFormatMarkdown}
+              hasMarkdown={contentHasMarkdown}
             />
           </div>
-
-          <div className={styles.divider} />
-
-          {/* Rich editor */}
-          <RichEditor
-            content={article.content || ''}
-            onChange={html => handleChange('content', html)}
-            placeholder="Tell your story. Format with toolbar, write freely..."
-          />
         </div>
 
-        {/* AI Assistant panel */}
+        {/* AI Co-pilot: right sidebar on desktop, bottom sheet on mobile/tablet */}
         {aiPanel && (
-          <aside className={styles.aiPanel}>
-            <div className={styles.aiPanelHeader}>
-              <div className={styles.aiHeaderLeft}>
-                <span className={styles.sparkle}>✦</span>
-                <span className={styles.aiPanelTitle}>Editorial Assistant</span>
-              </div>
-              <button className={styles.closeAi} onClick={() => setAiPanel(false)}>×</button>
-            </div>
-
-            <div className={styles.aiScrollArea}>
-              <div className={styles.aiActions}>
-                <p className={styles.aiGroupLabel}>Compose & Polish</p>
-                <button className={styles.aiActionBtn} onClick={() => runAI('continue')} disabled={aiLoading}>
-                  <span>✍️</span><span>Continue Writing</span>
-                </button>
-                <button className={styles.aiActionBtn} onClick={() => runAI('improve')} disabled={aiLoading}>
-                  <span>✦</span><span>Improve & Polish</span>
-                </button>
-
-                <p className={styles.aiGroupLabel}>Tone & Style</p>
-                <div className={styles.toneSelector}>
-                  <select value={selectedTone} onChange={e => setSelectedTone(e.target.value)} className={styles.toneSelect}>
-                    {TONES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                  </select>
-                  <button className={styles.aiActionBtnSmall} onClick={() => runAI('tone')} disabled={aiLoading}>
-                    Apply Tone
-                  </button>
+          <>
+            <div className={styles.sheetBackdrop} onClick={() => setAiPanel(false)} aria-hidden="true" />
+            <aside className={styles.aiPanel} role="dialog" aria-label="AI Co-pilot">
+              <div className={styles.sheetHandle} aria-hidden="true" />
+              <div className={styles.aiPanelHeader}>
+                <div className={styles.aiHeaderLeft}>
+                  <span className={styles.sparkle}>✦</span>
+                  <span className={styles.aiPanelTitle}>AI Co-pilot</span>
                 </div>
+                <button className={styles.closeAi} onClick={() => setAiPanel(false)} aria-label="Close AI panel">✕ Close</button>
+              </div>
 
-                <p className={styles.aiGroupLabel}>Structure & Metadata</p>
-                <button className={styles.aiActionBtn} onClick={() => runAI('summarize')} disabled={aiLoading}>
-                  <span>⊡</span><span>Auto-summarize</span>
-                </button>
-                <button className={styles.aiActionBtn} onClick={() => runAI('outline')} disabled={aiLoading}>
-                  <span>◈</span><span>Generate Outline</span>
-                </button>
-                <button className={styles.aiActionBtn} onClick={() => runAI('tags')} disabled={aiLoading}>
-                  <span>🏷️</span><span>Suggest Tags</span>
-                </button>
-                <button className={styles.aiActionBtn} onClick={() => runAI('prompts')} disabled={aiLoading}>
-                  <span>💡</span><span>Reflection Prompts</span>
-                </button>
-
-                <p className={styles.aiGroupLabel}>Custom Instruction</p>
-                <div className={styles.customPromptWrap}>
-                  <textarea
-                    className={styles.customPromptInput}
-                    placeholder="Ask Gemini to critique, rephrase, expand..."
-                    value={customPromptText}
-                    onChange={e => setCustomPromptText(e.target.value)}
-                    rows={2}
-                    disabled={aiLoading}
-                  />
-                  <div className={styles.customPromptOptions}>
-                    <label className={styles.contextToggle}>
-                      <input
-                        type="checkbox"
-                        checked={useArticleCtx}
-                        onChange={e => setUseArticleCtx(e.target.checked)}
-                      />
-                      <span>Include article as context</span>
-                    </label>
-                    <button
-                      className={styles.aiActionBtnSmall}
-                      onClick={handleCustomPrompt}
-                      disabled={aiLoading || !customPromptText.trim()}
-                    >
-                      Ask AI →
+              <div className={styles.aiScrollArea}>
+                <div className={styles.aiActions}>
+                  <p className={styles.aiGroupLabel}>Compose &amp; Polish</p>
+                  <div className={styles.quickGrid}>
+                    <button className={styles.quickBtn} onClick={() => runAI('continue')} disabled={aiLoading}>
+                      <span className={styles.quickIcon}>✍️</span><span>Continue Writing</span>
+                    </button>
+                    <button className={styles.quickBtn} onClick={() => runAI('improve')} disabled={aiLoading}>
+                      <span className={styles.quickIcon}>✦</span><span>Improve &amp; Polish</span>
                     </button>
                   </div>
-                </div>
-              </div>
 
-              {(aiLoading || aiResult) && (
-                <div ref={aiResultRef} className={styles.aiResult}>
-                  <div className={styles.aiResultHeader}>
-                    <span>✦ Result</span>
-                    {aiResult && !aiLoading && (
-                      <div className={styles.aiResultBtns}>
-                        {['continue', 'improve', 'tone'].includes(aiAction) && (
-                          <button className={styles.applyBtn} onClick={applyAIResult}>Apply</button>
-                        )}
-                        <button className={styles.copyBtn} onClick={() => { navigator.clipboard.writeText(aiResult); showToast('Copied to clipboard') }}>Copy</button>
+                  <p className={styles.aiGroupLabel}>Tone &amp; Style</p>
+                  <div className={styles.toneRow}>
+                    <select value={selectedTone} onChange={e => setSelectedTone(e.target.value)} className={styles.toneSelect} aria-label="Tone">
+                      {TONES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                    </select>
+                    <button className={styles.toneApply} onClick={() => runAI('tone')} disabled={aiLoading}>
+                      Apply Tone
+                    </button>
+                  </div>
+
+                  <p className={styles.aiGroupLabel}>Quick Actions</p>
+                  <div className={styles.quickGrid}>
+                    {quickActions.map(q => (
+                      <button
+                        key={q.action}
+                        className={`${styles.quickBtn} ${aiLoading && aiAction === q.action ? styles.quickBtnLoading : ''}`}
+                        onClick={() => runAI(q.action)}
+                        disabled={aiLoading}
+                      >
+                        <span className={styles.quickIcon}>{q.icon}</span><span>{q.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className={styles.aiGroupLabel}>Custom Instruction</p>
+                  <div className={styles.customPromptWrap}>
+                    <textarea
+                      className={styles.customPromptInput}
+                      placeholder="Ask Gemini to critique, rephrase, expand..."
+                      value={customPromptText}
+                      onChange={e => setCustomPromptText(e.target.value)}
+                      rows={2}
+                      disabled={aiLoading}
+                    />
+                    <div className={styles.customPromptOptions}>
+                      <label className={styles.contextToggle}>
+                        <input
+                          type="checkbox"
+                          checked={useArticleCtx}
+                          onChange={e => setUseArticleCtx(e.target.checked)}
+                        />
+                        <span>Include article as context</span>
+                      </label>
+                      <button
+                        className={styles.askBtn}
+                        onClick={handleCustomPrompt}
+                        disabled={aiLoading || !customPromptText.trim()}
+                      >
+                        Ask AI →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {(aiLoading || aiResult) && (
+                  <div ref={aiResultRef} className={styles.aiResult}>
+                    <div className={styles.aiResultHeader}>
+                      <span>✦ AI Result</span>
+                      {aiResult && !aiLoading && (
+                        <div className={styles.aiResultBtns}>
+                          {['continue', 'improve', 'tone'].includes(aiAction) && (
+                            <button className={styles.applyBtn} onClick={applyAIResult}>Apply</button>
+                          )}
+                          {canInsertResult && (
+                            <button className={styles.insertBtn} onClick={insertAIResult} title="Convert markdown to rich text and insert at the end of your article">
+                              Insert into Article
+                            </button>
+                          )}
+                          <button className={styles.copyBtn} onClick={() => { navigator.clipboard.writeText(aiResult); showToast('Copied to clipboard') }}>Copy</button>
+                        </div>
+                      )}
+                    </div>
+                    {aiLoading ? (
+                      <div className={styles.aiLoadingText}>
+                        <span className={styles.aiSpin}>✦</span> Generating thoughtful response...
                       </div>
+                    ) : (
+                      <div className={styles.aiResultText}>{aiResult}</div>
                     )}
                   </div>
-                  {aiLoading ? (
-                    <div className={styles.aiLoadingText}>
-                      <span className={styles.aiSpin}>✦</span> Generating thoughtful response...
-                    </div>
-                  ) : (
-                    <div className={styles.aiResultText}>{aiResult}</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </aside>
+                )}
+              </div>
+            </aside>
+          </>
         )}
-      </div>
 
-      {/* Version History Drawer */}
-      <VersionHistoryDrawer
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        articleId={article.id || ''}
-        onRestore={handleRestoreVersion}
-      />
+        {/* Version History: right sidebar on desktop, bottom sheet on mobile/tablet */}
+        <VersionHistoryDrawer
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          articleId={article.id || ''}
+          onRestore={handleRestoreVersion}
+        />
+      </div>
 
       {/* Publish Modal */}
       {showPublishModal && (

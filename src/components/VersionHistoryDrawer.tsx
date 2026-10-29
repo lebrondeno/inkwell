@@ -36,14 +36,15 @@ export default function VersionHistoryDrawer({ open, onClose, articleId, onResto
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.drawer} onClick={e => e.stopPropagation()}>
+      <div className={styles.drawer} onClick={e => e.stopPropagation()} role="dialog" aria-label="Version history">
+        <div className={styles.sheetHandle} aria-hidden="true" />
         <div className={styles.header}>
           <div className={styles.headerLeft}>
             <h3 className={styles.title}>Version History</h3>
             <span className={styles.count}>{versions.length} Checkpoints</span>
           </div>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close history">
-            ×
+            ✕ Close
           </button>
         </div>
 
